@@ -1,8 +1,8 @@
 ## About
 
-This is Emacs package for searching, getting information and downloading
-AUR ([Arch User Repository](https://aur.archlinux.org/)) packages.  Its
-functionality is very similar to the one provided by
+This is an Emacs package for searching, getting information and
+downloading AUR ([Arch User Repository](https://aur.archlinux.org/))
+packages.  Its functionality is very similar to the one provided by
 [cower](http://github.com/falconindy/cower), but instead of command-line
 interface you use Emacs interface.
 
@@ -10,6 +10,13 @@ The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
 
 ## Installation
+
+### MELPA
+
+The package can be installed from [MELPA](http://melpa.milkbox.net).
+(with `M-x package-install` or `M-x list-packages`).
+
+### Manual
 
 Add the following lines to your `.emacs`.
 
@@ -62,4 +69,32 @@ information about packages:
 In both modes you can press <kbd>d</kbd> to download the package, but
 don't forget to set `aurel-download-directory` before.
 
+## Configuration
+
+User options (not much currently) can be explored with
+``M-x customize-group RET aurel``.
+
+Descriptions of package parameters (displayed in `aurel-info-mode`
+buffer and as column titles in `aurel-list-mode` buffer) can be changed
+with `aurel-param-description-alist` variable.
+
+Columns in a buffer with a list of packages can be configured with
+`aurel-list-column-format`.
+
+Various aspects of displaying information about a package can be
+configured with `aurel-info-parameters`,
+`aurel-info-insert-params-alist`, `aurel-info-format` and
+`aurel-info-fill-column` variables and with `aurel-info-...` faces.
+
+### Downloading a package
+
+You can change the default behavior of a "downloading action" with
+`aurel-info-download-function` and `aurel-list-download-function`
+variables.  Currently the following functions are available:
+
+- `aurel-download`
+- `aurel-download-unpack` (default in a list buffer)
+- `aurel-download-unpack-dired` (default in an info buffer)
+- `aurel-download-unpack-pkgbuild`
+- `aurel-download-unpack-eshell`
 
