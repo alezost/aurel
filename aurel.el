@@ -534,6 +534,8 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
                          (cons (aurel-get-param-name (car col-spec))
                                (cdr col-spec)))
                        aurel-list-column-format)))
+  (setq tabulated-list-sort-key
+        (list (aurel-get-param-description 'name)))
   (tabulated-list-init-header))
 
 (defun aurel-list-show (list &optional buffer)
