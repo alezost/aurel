@@ -571,8 +571,7 @@ If BUFFER is nil, use (create if needed) buffer with the name
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer))
-      (or (derived-mode-p 'aurel-list-mode)
-          (aurel-list-mode))
+      (aurel-list-mode)
       (setq aurel-list list)
       (setq tabulated-list-entries
             (aurel-list-get-entries list))
@@ -785,8 +784,7 @@ If BUFFER is nil, use (create if needed) buffer with the name
         (erase-buffer)
         (aurel-info-print info))
       (goto-char (point-min))
-      (or (derived-mode-p 'aurel-info-mode)
-          (aurel-info-mode))
+      (aurel-info-mode)
       (setq aurel-info info)
       (pop-to-buffer-same-window buf))))
 
