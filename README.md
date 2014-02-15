@@ -13,7 +13,7 @@ RPC interface to get information about AUR packages.
 
 ### MELPA
 
-The package can be installed from [MELPA](http://melpa.milkbox.net).
+The package can be installed from [MELPA](http://melpa.milkbox.net)
 (with `M-x package-install` or `M-x list-packages`).
 
 ### Manual
@@ -68,6 +68,15 @@ information about packages:
 
 In both modes you can press <kbd>d</kbd> to download the package, but
 don't forget to set `aurel-download-directory` before.
+
+Using prefix (<kbd>C-u</kbd>) before interactive commands creates a new
+info or list buffer instead of using the existing ones.  That allows,
+for example, to keep results of multiple searches or to look at
+information about several packages at the same time.
+
+Maintainer name in an info buffer is a button.  If you press
+<kbd>RET</kbd> (keep in mind <kbd>C-u</kbd>) on it, a new search for
+packages by this maintainer will happen.
 
 ## Configuration
 
