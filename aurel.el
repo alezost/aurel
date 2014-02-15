@@ -654,6 +654,11 @@ Use `aurel-list-download-function'."
   "Face used for a maintainer of a package."
   :group 'aurel-info)
 
+(defface aurel-info-url
+  '((t :inherit button))
+  "Face used for URLs."
+  :group 'aurel-info)
+
 (defface aurel-info-version
   '((t))
   "Face used for a version of a package."
@@ -821,6 +826,7 @@ Use `aurel-info-format' to format descriptions of parameters."
   "Make button from URL and insert it at point."
   (insert-button
    url
+   'face 'aurel-info-url
    'action (lambda (btn) (browse-url (button-label btn)))
    'follow-link t
    'help-echo "mouse-2, RET: Browse URL"))
