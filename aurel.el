@@ -166,7 +166,7 @@ filter functions.  See `aurel-apply-filters' for details.")
   (car (rassoc param-name aurel-param-alist)))
 
 (defun aurel-get-param-description (param-symbol)
-  "Return a description of a parameter PARAM-NAME."
+  "Return a description of a parameter PARAM-SYMBOL."
   (cdr (assoc param-symbol aurel-param-description-alist)))
 
 (defun aurel-get-param-val (param info)
@@ -402,7 +402,9 @@ For the meaning of URL and DIR, see `aurel-download-unpack'."
 ;;; Defining URL
 
 (defun aurel-get-rpc-url (type arg)
-  "Return URL for getting info about AUR packages."
+  "Return URL for getting info about AUR packages.
+TYPE is the name of an allowed method.
+ARG is the argument to the call."
   (url-expand-file-name
    (format "rpc.php?type=%s&arg=%s"
            (url-hexify-string type)
