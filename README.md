@@ -9,6 +9,11 @@ interface you use Emacs interface.
 The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
 
+You may look at a
+[gif demonstration](http://itmages.ru/image/view/1499637/347829e6) made
+by [Ivaylo Kuzev](https://github.com/ivoarch) to get an idea how aurel
+looks like.
+
 ## Installation
 
 ### MELPA
