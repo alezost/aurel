@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.1.1
+;; Version: 0.1.2
 ;; URL: http://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -650,7 +650,7 @@ Use `aurel-list-download-function'."
   :group 'aurel-info)
 
 (defface aurel-info-maintainer
-  '((t :inherit font-lock-string-face))
+  '((t :inherit button))
   "Face used for a maintainer of a package."
   :group 'aurel-info)
 
@@ -728,7 +728,7 @@ destination directory."
 (defvar aurel-info-insert-params-alist
   '((id          . aurel-info-id)
     (name        . aurel-info-name)
-    (maintainer  . aurel-info-maintainer)
+    (maintainer  . aurel-info-insert-maintainer)
     (version     . aurel-info-version)
     (category    . aurel-info-category)
     (license     . aurel-info-license)
@@ -821,6 +821,19 @@ Use `aurel-info-format' to format descriptions of parameters."
       (insert (propertize val 'face insert-val)))
      (t (insert val)))
     (insert "\n")))
+
+(defun aurel-info-insert-maintainer (name)
+  "Make button from maintainer NAME and insert it at point."
+  (if (string= name aurel-empty-string)
+      (insert (propertize name 'face 'aurel-info-maintainer))
+    (insert-button
+     name
+     'face 'aurel-info-maintainer
+     'action (lambda (btn)
+               (aurel-maintainer-search (button-label btn)
+                                        current-prefix-arg))
+     'follow-link t
+     'help-echo "mouse-2, RET: Find the packages by this maintainer")))
 
 (defun aurel-info-insert-url (url)
   "Make button from URL and insert it at point."
