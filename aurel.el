@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.1
+;; Version: 0.1.1
 ;; URL: http://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -430,6 +430,9 @@ PACKAGE can be either a string (name) or a number (ID)."
 
 ;;; UI
 
+;; FIXME `aurel-package-search' and `aurel-maintainer-search' are very
+;; similar, make a macro perhaps.
+
 (defcustom aurel-list-single-package nil
   "If non-nil, list a package even if it is the one matching result.
 If nil, show a single matching package in info buffer."
@@ -437,22 +440,28 @@ If nil, show a single matching package in info buffer."
   :group 'aurel)
 
 ;;;###autoload
-(defun aurel-package-info (name-or-id)
+(defun aurel-package-info (name-or-id &optional arg)
   "Display information about AUR package NAME-OR-ID.
-NAME-OR-ID may be a string or a number."
-  (interactive "sName or ID: ")
+NAME-OR-ID may be a string or a number.
+The buffer for showing results is defined by `aurel-info-buffer-name'.
+With prefix (if ARG is non-nil), show results in a new info buffer."
+  (interactive "sName or ID: \nP")
   (when (numberp name-or-id)
     (setq name-or-id (number-to-string name-or-id)))
   (let ((packages (aurel-receive-packages-info
                    (aurel-get-package-info-url name-or-id))))
     (if packages
-        (aurel-info-show (cdar packages))
+        (aurel-info-show (cdar packages)
+                         (when arg (generate-new-buffer
+                                    aurel-info-buffer-name)))
       (message "Package %s not found." name-or-id))))
 
 ;;;###autoload
-(defun aurel-package-search (str)
-  "Search for AUR packages matching a string STR."
-  (interactive "sSearch by name/description: ")
+(defun aurel-package-search (str &optional arg)
+  "Search for AUR packages matching a string STR.
+The buffer for showing results is defined by `aurel-list-buffer-name'.
+With prefix (if ARG is non-nil), show results in a new buffer."
+  (interactive "sSearch by name/description: \nP")
   (let ((packages (aurel-receive-packages-info
                    (aurel-get-package-search-url str))))
     (cond
@@ -460,15 +469,21 @@ NAME-OR-ID may be a string or a number."
       (message "No packages matching '%s'." str))
      ((and (null (cdr packages))
            (null aurel-list-single-package))
-      (aurel-info-show (cdar packages))
+      (aurel-info-show (cdar packages)
+                       (when arg (generate-new-buffer
+                                  aurel-info-buffer-name)))
       (message "A single package matching '%s' found." str))
      (t
-      (aurel-list-show packages)))))
+      (aurel-list-show packages
+                       (when arg (generate-new-buffer
+                                  aurel-list-buffer-name)))))))
 
 ;;;###autoload
-(defun aurel-maintainer-search (name)
-  "Search for AUR packages by maintainer NAME."
-  (interactive "sSearch by maintainer: ")
+(defun aurel-maintainer-search (name &optional arg)
+  "Search for AUR packages by maintainer NAME.
+The buffer for showing results is defined by `aurel-list-buffer-name'.
+With prefix (if ARG is non-nil), show results in a new buffer."
+  (interactive "sSearch by maintainer: \nP")
   (let ((packages (aurel-receive-packages-info
                    (aurel-get-maintainer-search-url name))))
     (cond
@@ -476,10 +491,14 @@ NAME-OR-ID may be a string or a number."
       (message "No packages matching maintainer '%s'." name))
      ((and (null (cdr packages))
            (null aurel-list-single-package))
-      (aurel-info-show (cdar packages))
+      (aurel-info-show (cdar packages)
+                       (when arg (generate-new-buffer
+                                  aurel-info-buffer-name)))
       (message "A single package by maintainer '%s' found." name))
      (t
-      (aurel-list-show packages)))))
+      (aurel-list-show packages
+                       (when arg (generate-new-buffer
+                                  aurel-list-buffer-name)))))))
 
 
 ;;; Package list
@@ -587,10 +606,13 @@ Use parameters from `aurel-list-column-format'."
 	(cdr (assoc id aurel-list))
       (user-error "No package here"))))
 
-(defun aurel-list-describe-package ()
-  "Describe the current package."
-  (interactive)
-  (aurel-info-show (aurel-list-get-package-info)))
+(defun aurel-list-describe-package (&optional arg)
+  "Describe the current package.
+With prefix (if ARG is non-nil), show results in a new info buffer."
+  (interactive "P")
+  (aurel-info-show (aurel-list-get-package-info)
+                   (when arg (generate-new-buffer
+                              aurel-info-buffer-name))))
 
 (defun aurel-list-download-package ()
   "Download current package.
