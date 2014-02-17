@@ -570,7 +570,7 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
   (setq tabulated-list-format
         (apply #'vector
                (mapcar (lambda (col-spec)
-                         (cons (aurel-get-param-name (car col-spec))
+                         (cons (aurel-get-param-description (car col-spec))
                                (cdr col-spec)))
                        aurel-list-column-format)))
   (setq tabulated-list-sort-key
