@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.1.2
+;; Version: 0.1.3
 ;; URL: http://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -439,13 +439,25 @@ If nil, show a single matching package in info buffer."
   :type 'boolean
   :group 'aurel)
 
+(defvar aurel-package-info-history nil
+  "A history list for `aurel-package-info'.")
+
+(defvar aurel-package-search-history nil
+  "A history list for `aurel-package-search'.")
+
+(defvar aurel-maintainer-search-history nil
+  "A history list for `aurel-maintainer-search'.")
+
 ;;;###autoload
 (defun aurel-package-info (name-or-id &optional arg)
   "Display information about AUR package NAME-OR-ID.
 NAME-OR-ID may be a string or a number.
 The buffer for showing results is defined by `aurel-info-buffer-name'.
 With prefix (if ARG is non-nil), show results in a new info buffer."
-  (interactive "sName or ID: \nP")
+  (interactive
+   (list (read-string "Name or ID: "
+                      nil 'aurel-package-info-history)
+         current-prefix-arg))
   (when (numberp name-or-id)
     (setq name-or-id (number-to-string name-or-id)))
   (let ((packages (aurel-receive-packages-info
@@ -461,7 +473,10 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
   "Search for AUR packages matching a string STR.
 The buffer for showing results is defined by `aurel-list-buffer-name'.
 With prefix (if ARG is non-nil), show results in a new buffer."
-  (interactive "sSearch by name/description: \nP")
+  (interactive
+   (list (read-string "Search by name/description: "
+                      nil 'aurel-package-search-history)
+         current-prefix-arg))
   (let ((packages (aurel-receive-packages-info
                    (aurel-get-package-search-url str))))
     (cond
@@ -483,7 +498,10 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   "Search for AUR packages by maintainer NAME.
 The buffer for showing results is defined by `aurel-list-buffer-name'.
 With prefix (if ARG is non-nil), show results in a new buffer."
-  (interactive "sSearch by maintainer: \nP")
+  (interactive
+   (list (read-string "Search by maintainer: "
+                      nil 'aurel-maintainer-search-history)
+         current-prefix-arg))
   (let ((packages (aurel-receive-packages-info
                    (aurel-get-maintainer-search-url name))))
     (cond
