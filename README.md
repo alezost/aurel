@@ -92,13 +92,29 @@ Descriptions of package parameters (displayed in `aurel-info-mode`
 buffer and as column titles in `aurel-list-mode` buffer) can be changed
 with `aurel-param-description-alist` variable.
 
-Columns in a buffer with a list of packages can be configured with
-`aurel-list-column-format`.
-
 Various aspects of displaying information about a package can be
 configured with `aurel-info-parameters`,
 `aurel-info-insert-params-alist`, `aurel-info-format` and
 `aurel-info-fill-column` variables and with `aurel-info-...` faces.
+
+### Package list
+
+Columns in a buffer with a list of packages can be configured with
+`aurel-list-column-format`.
+
+For example, if you don't want to have a column with version but want to
+add **sortable** columns with maintainer and votes, try the following:
+
+```lisp
+(setq aurel-list-column-format
+      '((name 25 t)
+        (maintainer 20 t)
+        (votes 8
+               (lambda (a b)
+                 (> (string-to-number (aref (cadr a) 2))
+                    (string-to-number (aref (cadr b) 2)))))
+        (description 30 nil)))
+```
 
 ### Downloading a package
 
