@@ -464,8 +464,7 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
                    (aurel-get-package-info-url name-or-id))))
     (if packages
         (aurel-info-show (cdar packages)
-                         (when arg (generate-new-buffer
-                                    aurel-info-buffer-name)))
+                         (aurel-info-get-buffer-name arg))
       (message "Package %s not found." name-or-id))))
 
 ;;;###autoload
@@ -485,13 +484,11 @@ With prefix (if ARG is non-nil), show results in a new buffer."
      ((and (null (cdr packages))
            (null aurel-list-single-package))
       (aurel-info-show (cdar packages)
-                       (when arg (generate-new-buffer
-                                  aurel-info-buffer-name)))
+                       (aurel-info-get-buffer-name arg))
       (message "A single package matching '%s' found." str))
      (t
       (aurel-list-show packages
-                       (when arg (generate-new-buffer
-                                  aurel-list-buffer-name)))))))
+                       (aurel-list-get-buffer-name arg))))))
 
 ;;;###autoload
 (defun aurel-maintainer-search (name &optional arg)
@@ -510,13 +507,11 @@ With prefix (if ARG is non-nil), show results in a new buffer."
      ((and (null (cdr packages))
            (null aurel-list-single-package))
       (aurel-info-show (cdar packages)
-                       (when arg (generate-new-buffer
-                                  aurel-info-buffer-name)))
+                       (aurel-info-get-buffer-name arg))
       (message "A single package by maintainer '%s' found." name))
      (t
       (aurel-list-show packages
-                       (when arg (generate-new-buffer
-                                  aurel-list-buffer-name)))))))
+                       (aurel-list-get-buffer-name arg))))))
 
 
 ;;; Package list
@@ -559,6 +554,13 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (define-key map "d" 'aurel-list-download-package)
     map)
   "Keymap for `aurel-list-mode'.")
+
+(defun aurel-list-get-buffer-name (&optional unique)
+  "Return a name of a list buffer.
+If UNIQUE is non-nil, make the name unique."
+  (if unique
+      (generate-new-buffer aurel-list-buffer-name)
+    aurel-list-buffer-name))
 
 (define-derived-mode aurel-list-mode
   tabulated-list-mode "AURel-list"
@@ -628,8 +630,7 @@ Use parameters from `aurel-list-column-format'."
 With prefix (if ARG is non-nil), show results in a new info buffer."
   (interactive "P")
   (aurel-info-show (aurel-list-get-package-info)
-                   (when arg (generate-new-buffer
-                              aurel-info-buffer-name))))
+                   (aurel-info-get-buffer-name arg)))
 
 (defun aurel-list-download-package ()
   "Download current package.
@@ -786,6 +787,13 @@ Cdr - is a value (number or string) of that parameter.")
     (define-key map [backtab] 'backward-button)
     map)
   "Keymap for `aurel-info-mode'.")
+
+(defun aurel-info-get-buffer-name (&optional unique)
+  "Return a name of an info buffer.
+If UNIQUE is non-nil, make the name unique."
+  (if unique
+      (generate-new-buffer aurel-info-buffer-name)
+    aurel-info-buffer-name))
 
 (define-derived-mode aurel-info-mode nil "AURel-info"
   "Major mode for displaying information about an AUR package.
