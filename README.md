@@ -88,6 +88,14 @@ packages by this maintainer will happen.
 User options (not much currently) can be explored with
 ``M-x customize-group RET aurel``.
 
+If you don't like the names of info and list buffers, you can change
+those like this:
+
+```lisp
+(setq aurel-list-buffer-name "*aur-list*"
+      aurel-info-buffer-name "*aur-info*")
+```
+
 Descriptions of package parameters (displayed in `aurel-info-mode`
 buffer and as column titles in `aurel-list-mode` buffer) can be changed
 with `aurel-param-description-alist` variable.
