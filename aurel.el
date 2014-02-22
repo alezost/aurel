@@ -56,6 +56,7 @@
 (require 'url-handlers)
 (require 'json)
 (require 'tabulated-list)
+(require 'cl-macs)
 
 (defgroup aurel nil
   "Search and download AUR (Arch User Repository) packages."
@@ -197,15 +198,25 @@ For information about time formats, see `format-time-string'."
   "Vector of package categories.
 Index of an element is a category ID.")
 
+(defvar aurel-filter-params nil
+  "List of parameters (symbols), that should match specified strings.
+Used in `aurel-filter-contains-every-string'.")
+
+(defvar aurel-filter-strings nil
+  "List of strings, a package info should match.
+Used in `aurel-filter-contains-every-string'.")
+
 (defvar aurel-filters
-  '(aurel-filter-intern aurel-filter-empty aurel-filter-date
+  '(aurel-filter-intern aurel-filter-contains-every-string
+    aurel-filter-empty aurel-filter-date
     aurel-filter-outdated aurel-filter-category
     aurel-filter-pkg-url aurel-filter-aur-url)
-  "List of default filter functions applied to a package INFO.
+  "List of default filter functions applied to a package info.
 
 Each filter function should accept a single argument - info alist
-with package parameters and should return info alist.  Functions
-may modify associations or add the new ones to the alist.  In the
+with package parameters and should return info alist or
+nil (which means: ignore this package info).  Functions may
+modify associations or add the new ones to the alist.  In the
 latter case you might want to add descriptions of the added
 symbols into `aurel-param-description-alist'.
 
@@ -248,6 +259,25 @@ For names and symbols of parameters, see `aurel-param-alist'."
                         param-name)
                nil)))
          info)))
+
+(defun aurel-filter-contains-every-string (info)
+  "Check if a package INFO contains all necessary strings.
+
+Return INFO, if values of parameters from `aurel-filter-params'
+contain all strings from `aurel-filter-strings', otherwise return nil.
+
+Pass the check (return INFO), if `aurel-filter-strings' or
+`aurel-filter-params' is nil."
+  (when (or (null aurel-filter-params)
+            (null aurel-filter-strings)
+            (let ((str (mapconcat (lambda (param)
+                                    (aurel-get-param-val param info))
+                                  aurel-filter-params
+                                  "\n")))
+              (cl-every (lambda (substr)
+                          (string-match-p (regexp-quote substr) str))
+                        aurel-filter-strings)))
+    info))
 
 (defun aurel-filter-empty (info)
   "Replace nil in parameter values with `aurel-empty-string' in a package INFO.
@@ -433,9 +463,6 @@ PACKAGE can be either a string (name) or a number (ID)."
 
 ;;; UI
 
-;; FIXME `aurel-package-search' and `aurel-maintainer-search' are very
-;; similar, make a macro perhaps.
-
 (defcustom aurel-list-single-package nil
   "If non-nil, list a package even if it is the one matching result.
 If nil, show a single matching package in info buffer."
@@ -473,14 +500,33 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
 ;;;###autoload
 (defun aurel-package-search (str &optional arg)
   "Search for AUR packages matching a string STR.
-The buffer for showing results is defined by `aurel-list-buffer-name'.
-With prefix (if ARG is non-nil), show results in a new buffer."
+
+STR can be a string of multiple words separated by spaces.  To
+search for a string containing spaces, quote it with double
+quotes.  For example, the following search is allowed:
+
+  \"python library\" plot
+
+The buffer for showing results is defined by
+`aurel-list-buffer-name'.  With prefix (if ARG is non-nil), show
+results in a new buffer."
   (interactive
    (list (read-string "Search by name/description: "
                       nil 'aurel-package-search-history)
          current-prefix-arg))
-  (let ((packages (aurel-receive-packages-info
-                   (aurel-get-package-search-url str))))
+  ;; A hack for searching by multiple strings: the actual server search
+  ;; is done by the biggest string and the rest strings are searched in
+  ;; the results returned by the server
+  (let* ((strings
+          ;; sort to search by the biggest (first) string
+          (sort (split-string-and-unquote str)
+                (lambda (a b)
+                  (> (length a) (length b)))))
+         (packages
+          (let ((aurel-filter-params '(name description))
+                (aurel-filter-strings (cdr strings)))
+            (aurel-receive-packages-info
+             (aurel-get-package-search-url (car strings))))))
     (cond
      ((null packages)
       (message "No packages matching '%s'." str))
