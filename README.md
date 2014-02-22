@@ -51,6 +51,10 @@ Add the following lines to your `.emacs`.
 
   `M-x aurel-package-search`
 
+  Searching for multiple words (separated with spaces) is supported.  If
+  you want to search for a string containing spaces, quote it with
+  double quotes (`"..."`).
+
 - Search for packages by maintainer:
 
   `M-x aurel-maintainer-search`
