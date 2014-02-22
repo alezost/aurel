@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.1.3
+;; Version: 0.2
 ;; URL: http://github.com/alezost/aurel
 ;; Keywords: tools
 
