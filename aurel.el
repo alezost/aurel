@@ -110,11 +110,13 @@ INFO is alist of package parameters and values (see `aurel-info')."
      (t
       (when (string= type "info")
         (setq results (list results)))
-      (mapcar (lambda (info)
-                (let ((info (aurel-apply-filters info)))
-                  (cons (aurel-get-param-val 'id info)
-                        info)))
-              results)))))
+      (delq nil  ; ignore filtered (empty) info
+            (mapcar (lambda (info)
+                      (let ((info (aurel-apply-filters info)))
+                        (and info
+                             (cons (aurel-get-param-val 'id info)
+                                   info))))
+                    results))))))
 
 
 ;;; Package parameters
@@ -220,13 +222,14 @@ is passed to the second function from that list and so on.
 
 If FILTERS is nil, use `aurel-filters'.
 
-Return filtered info (result of the last filter)."
+Return filtered info (result of the last filter).  Return nil, if
+one of the FILTERS returns nil (do not call the rest filters)."
   (or filters
       (setq filters aurel-filters))
-  (mapc (lambda (fun)
-          (setq info (funcall fun info)))
-        filters)
-  info)
+  (cl-loop for fun in filters
+           do (setq info (funcall fun info))
+           while info
+           finally return info))
 
 (defun aurel-filter-intern (info)
   "Replace names of parameters with symbols in a package INFO.
