@@ -5,7 +5,7 @@
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
 ;; Version: 0.2
-;; URL: http://github.com/alezost/aurel
+;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,7 @@
 ;; package, press "d" (don't forget to set `aurel-download-directory'
 ;; before).
 
-;; For full description, see <http://github.com/alezost/aurel>.
+;; For full description, see <https://github.com/alezost/aurel>.
 
 ;;; Code:
 
