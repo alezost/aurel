@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.2
+;; Version: 0.2.1
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -351,12 +351,12 @@ Return modified info."
 (defun aurel-download (url dir)
   "Download AUR package from URL to a directory DIR.
 Return a path to the downloaded file."
-  ;; FIXME this is redundant; is there a simple way to download a file?
-  (let* ((file-name-handler-alist
-          (cons (cons url-handler-regexp 'url-file-handler)
-                file-name-handler-alist))
-         (buf (find-file-noselect url nil 'raw)))
-    (with-current-buffer buf
+  ;; Is there a simpler way to download a file?
+  (let ((file-name-handler-alist
+         (cons (cons url-handler-regexp 'url-file-handler)
+               file-name-handler-alist)))
+    (with-temp-buffer
+      (insert-file-contents-literally url)
       (let ((file (expand-file-name (url-file-nondirectory url) dir)))
         (write-file file)
         file))))
@@ -378,34 +378,29 @@ Use `tar-untar-buffer' from Tar mode.  All files should be placed
 in one directory; otherwise, signal an error.
 
 Return a path to the unpacked directory."
-  (let* ((file-name-handler-alist
-          (cons (cons url-handler-regexp 'url-file-handler)
-                file-name-handler-alist))
-         (buf (find-file-noselect url)))
-    (with-current-buffer buf
+  (let ((file-name-handler-alist
+         (cons (cons url-handler-regexp 'url-file-handler)
+               file-name-handler-alist)))
+    (with-temp-buffer
+      (insert-file-contents url)
+      (setq default-directory dir)
       (let ((file (expand-file-name (url-file-nondirectory url) dir)))
-        (write-file file)
-        (or (eq major-mode 'tar-mode)
-            (error "For some reason, the buffer '%s' is not in tar-mode"
-                   (buffer-name buf)))
-        (when (tar-data-swapped-p)
-          ;; Without it, `tar-untar-buffer' tries to extract files in URL
-          (with-current-buffer tar-data-buffer
-            (setq default-directory dir)))
-        ;; Make sure the first header is a dir and all files are
-        ;; placed in it (is it correct?)
-        (let* ((tar-car-data (car tar-parse-info))
-               (tar-dir (tar-header-name tar-car-data))
-               (tar-dir-re (regexp-quote tar-dir)))
-          (or (eq (tar-header-link-type tar-car-data) 5)
-              (error "The first entry '%s' in tar file is not a directory"
-                     tar-dir))
-          (dolist (tar-data (cdr tar-parse-info))
-            (or (string-match tar-dir-re (tar-header-name tar-data))
-                (error "Not all files are extracted into directory '%s'"
-                       tar-dir)))
-          (tar-untar-buffer)
-          (expand-file-name tar-dir dir))))))
+        (write-file file))
+      (tar-mode)
+      ;; Make sure the first header is a dir and all files are
+      ;; placed in it (is it correct?)
+      (let* ((tar-car-data (car tar-parse-info))
+             (tar-dir (tar-header-name tar-car-data))
+             (tar-dir-re (regexp-quote tar-dir)))
+        (or (eq (tar-header-link-type tar-car-data) 5)
+            (error "The first entry '%s' in tar file is not a directory"
+                   tar-dir))
+        (dolist (tar-data (cdr tar-parse-info))
+          (or (string-match tar-dir-re (tar-header-name tar-data))
+              (error "Not all files are extracted into directory '%s'"
+                     tar-dir)))
+        (tar-untar-buffer)
+        (expand-file-name tar-dir dir)))))
 
 (defun aurel-download-unpack-dired (url dir)
   "Download and unpack AUR package, and open the unpacked directory.
