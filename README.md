@@ -53,7 +53,12 @@ Add the following lines to your `.emacs`.
 
   Searching for multiple words (separated with spaces) is supported.  If
   you want to search for a string containing spaces, quote it with
-  double quotes (`"..."`).
+  double quotes (`"..."`). Examples of searching:
+
+  + `ttf`
+  + `strategy game`
+  + `"python library" xml`
+  + `light weight "programming language"`
 
 - Search for packages by maintainer:
 
@@ -86,6 +91,12 @@ information about several packages at the same time.
 Maintainer name in an info buffer is a button.  If you press
 <kbd>RET</kbd> (keep in mind <kbd>C-u</kbd>) on it, a new search for
 packages by this maintainer will happen.
+
+Each aurel buffer has its own history similar to the history of the
+Emacs `help` or `Info` modes.  You can move backward/forward by the
+history with <kbd>l</kbd>/<kbd>r</kbd>.  If you want to change the
+number of stored elements (or to disable the history), use
+`aurel-info-history-size` and `aurel-list-history-size` variables.
 
 ## Configuration
 
