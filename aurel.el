@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.2.1
+;; Version: 0.2.2
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -336,6 +336,66 @@ Return modified info."
           aurel-base-url))))
 
 
+;;; History
+
+(defvar-local aurel-history-stack-item nil
+  "Current item of the history.
+A list of the form (FUNCTION [ARGS ...]).
+The item is used by calling (apply FUNCTION ARGS).")
+(put 'aurel-history-stack-item 'permanent-local t)
+
+(defvar-local aurel-history-back-stack nil
+  "Stack (list) of visited items.
+Each element of the list has a form of `aurel-history-stack-item'.")
+(put 'aurel-history-back-stack 'permanent-local t)
+
+(defvar-local aurel-history-forward-stack nil
+  "Stack (list) of items visited with `aurel-history-back'.
+Each element of the list has a form of `aurel-history-stack-item'.")
+(put 'aurel-history-forward-stack 'permanent-local t)
+
+(defvar aurel-history-size 0
+  "Maximum number of items saved in history.
+If 0, the history is disabled.")
+
+(defun aurel-history-add (item)
+  "Add ITEM to history."
+  (and aurel-history-stack-item
+       (push aurel-history-stack-item aurel-history-back-stack))
+  (setq aurel-history-forward-stack nil
+        aurel-history-stack-item item)
+  (when (>= (length aurel-history-back-stack)
+            aurel-history-size)
+    (setq aurel-history-back-stack
+          (cl-loop for elt in aurel-history-back-stack
+                   for i from 1 to aurel-history-size
+                   collect elt))))
+
+(defun aurel-history-goto (item)
+  "Go to the ITEM of history.
+ITEM should have the form of `aurel-history-stack-item'."
+  (or (listp item)
+      (error "Wrong value of history element"))
+  (setq aurel-history-stack-item item)
+  (apply (car item) (cdr item)))
+
+(defun aurel-history-back ()
+  "Go back to the previous element of history in the current buffer."
+  (interactive)
+  (or aurel-history-back-stack
+      (user-error "No previous element in history"))
+  (push aurel-history-stack-item aurel-history-forward-stack)
+  (aurel-history-goto (pop aurel-history-back-stack)))
+
+(defun aurel-history-forward ()
+  "Go forward to the next element of history in the current buffer."
+  (interactive)
+  (or aurel-history-forward-stack
+      (user-error "No next element in history"))
+  (push aurel-history-stack-item aurel-history-back-stack)
+  (aurel-history-goto (pop aurel-history-forward-stack)))
+
+
 ;;; Downloading
 
 (defcustom aurel-download-directory "/tmp"
@@ -576,6 +636,12 @@ destination directory."
   :type 'function
   :group 'aurel-list)
 
+(defcustom aurel-list-history-size 10
+  "Maximum number of items saved in history of package list buffer.
+If 0, the history is disabled."
+  :type 'integer
+  :group 'aurel-list)
+
 (defvar aurel-list nil
   "Alist with packages info.
 
@@ -596,6 +662,8 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (set-keymap-parent map tabulated-list-mode-map)
     (define-key map "\C-m" 'aurel-list-describe-package)
     (define-key map "d" 'aurel-list-download-package)
+    (define-key map "l" 'aurel-history-back)
+    (define-key map "r" 'aurel-history-forward)
     map)
   "Keymap for `aurel-list-mode'.")
 
@@ -612,6 +680,7 @@ If UNIQUE is non-nil, make the name unique."
 
 \\{aurel-list-mode-map}"
   (make-local-variable 'aurel-list)
+  (setq-local aurel-history-size aurel-list-history-size)
   (setq default-directory aurel-download-directory)
   (setq tabulated-list-format
         (apply #'vector
@@ -625,22 +694,26 @@ If UNIQUE is non-nil, make the name unique."
 
 (defun aurel-list-show (list &optional buffer)
   "Display a LIST of packages in BUFFER.
-
 LIST should have the form of `aurel-list'.
-
 If BUFFER is nil, use (create if needed) buffer with the name
 `aurel-list-buffer-name'."
   (let ((buf (get-buffer-create
               (or buffer aurel-list-buffer-name))))
     (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer))
-      (aurel-list-mode)
-      (setq aurel-list list)
-      (setq tabulated-list-entries
-            (aurel-list-get-entries list))
-      (tabulated-list-print)
-      (pop-to-buffer-same-window buf))))
+      (aurel-list-show-1 list)
+      (aurel-history-add (list 'aurel-list-show-1 list)))
+    (pop-to-buffer-same-window buf)))
+
+(defun aurel-list-show-1 (list)
+  "Display a LIST of packages in current buffer.
+LIST should have the form of `aurel-list'."
+  (let ((inhibit-read-only t))
+    (erase-buffer))
+  (aurel-list-mode)
+  (setq aurel-list list)
+  (setq tabulated-list-entries
+        (aurel-list-get-entries list))
+  (tabulated-list-print))
 
 (defun aurel-list-get-entries (list)
   "Return list of values suitable for `tabulated-list-entries'.
@@ -788,6 +861,12 @@ destination directory."
   :type 'function
   :group 'aurel-info)
 
+(defcustom aurel-info-history-size 100
+  "Maximum number of items saved in history of package info buffer.
+If 0, the history is disabled."
+  :type 'integer
+  :group 'aurel-info)
+
 (defvar aurel-info-insert-params-alist
   '((id          . aurel-info-id)
     (name        . aurel-info-name)
@@ -829,6 +908,8 @@ Cdr - is a value (number or string) of that parameter.")
     (define-key map "d" 'aurel-info-download-package)
     (define-key map "\t" 'forward-button)
     (define-key map [backtab] 'backward-button)
+    (define-key map "l" 'aurel-history-back)
+    (define-key map "r" 'aurel-history-forward)
     map)
   "Keymap for `aurel-info-mode'.")
 
@@ -844,6 +925,7 @@ If UNIQUE is non-nil, make the name unique."
 
 \\{aurel-info-mode-map}"
   (make-local-variable 'aurel-info)
+  (setq-local aurel-history-size aurel-info-history-size)
   (setq buffer-read-only t)
   (setq default-directory aurel-download-directory))
 
@@ -855,13 +937,19 @@ If BUFFER is nil, use (create if needed) buffer with the name
   (let ((buf (get-buffer-create
               (or buffer aurel-info-buffer-name))))
     (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (aurel-info-print info))
-      (goto-char (point-min))
-      (aurel-info-mode)
-      (setq aurel-info info)
-      (pop-to-buffer-same-window buf))))
+      (aurel-info-show-1 info)
+      (aurel-history-add (list 'aurel-info-show-1 info)))
+    (pop-to-buffer-same-window buf)))
+
+(defun aurel-info-show-1 (info)
+  "Display package information INFO in current buffer.
+INFO should have the form of `aurel-info'."
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (aurel-info-print info))
+  (goto-char (point-min))
+  (aurel-info-mode)
+  (setq aurel-info info))
 
 (defun aurel-info-print (info)
   "Insert (pretty print) package INFO into current buffer.
