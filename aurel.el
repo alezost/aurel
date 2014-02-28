@@ -927,7 +927,8 @@ Cdr - is alist of package info of the form of `aurel-info'.")
 
 (defvar aurel-list-column-format
   '((name 25 t)
-    (version 20 nil)
+    (version 15 nil)
+    (installed-version 15 t)
     (description 30 nil))
   "List specifying columns used in the buffer with a list of packages.
 Each element of the list should have the form (NAME WIDTH SORT . PROPS).
