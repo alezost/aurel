@@ -62,8 +62,43 @@
   "Search and download AUR (Arch User Repository) packages."
   :group 'applications)
 
+(defcustom aurel-empty-string "-"
+  "String used for empty (or none) values of package parameters."
+  :type 'string
+  :group 'aurel)
+
+(defcustom aurel-outdated-string "Yes"
+  "String used for outdated parameter if a package is out of date."
+  :type 'string
+  :group 'aurel)
+
+(defcustom aurel-not-outdated-string "No"
+  "String used for outdated parameter if a package is not out of date."
+  :type 'string
+  :group 'aurel)
+
+(defcustom aurel-date-format "%Y-%m-%d %T"
+  "Time format used to represent submit and last dates of a package.
+For information about time formats, see `format-time-string'."
+  :type 'string
+  :group 'aurel)
+
+(defun aurel-get-string (val &optional face)
+  "Return string from VAL.
+If VAL is nil, return `aurel-empty-string'.
+Otherwise, if VAL is not string, use `prin1-to-string'.
+If FACE is specified, propertize returned string with this FACE."
+  (if val
+      (progn
+        (or (stringp val)
+            (setq val (prin1-to-string val)))
+        (if face
+            (propertize val 'face face)
+          val))
+    aurel-empty-string))
+
 
-;;; Backend
+;;; Interacting with AUR server
 
 (defvar aurel-base-url "https://aur.archlinux.org/"
   "Root URL of the AUR service.")
@@ -79,26 +114,19 @@
               (> url-http-response-status 299))
           (error "Error during request: %s" url-http-response-status))
       (goto-char (point-min))
-      (search-forward-regexp "^{") ;; is there a better way?
+      (re-search-forward "^{") ;; is there a better way?
       (beginning-of-line)
       (let ((json-key-type 'string)
             (json-array-type 'list)
             (json-object-type 'alist))
         (json-read)))))
 
-(defun aurel-receive-packages-info (url)
+(defun aurel-get-aur-packages-info (url)
   "Return information about the packages from URL.
-
 Output from URL should be a json data.  It is parsed with
-`json-read', then information about the packages is passed
-through `aurel-apply-filters'.
-
-Returning value is alist, each element of which has a form:
-
-  (ID . INFO)
-
-ID is a package id (number).
-INFO is alist of package parameters and values (see `aurel-info')."
+`json-read'.
+Returning value is alist of AUR package parameters (strings from
+`aurel-aur-param-alist') and their values."
   (let* ((full-info (aurel-receive-parse-info url))
          (type      (cdr (assoc "type" full-info)))
          (count     (cdr (assoc "resultcount" full-info)))
@@ -111,18 +139,99 @@ INFO is alist of package parameters and values (see `aurel-info')."
      (t
       (when (string= type "info")
         (setq results (list results)))
-      (delq nil  ; ignore filtered (empty) info
-            (mapcar (lambda (info)
-                      (let ((info (aurel-apply-filters info)))
-                        (and info
-                             (cons (aurel-get-param-val 'id info)
-                                   info))))
-                    results))))))
+      results))))
+
+
+;;; Interacting with pacman
+
+(defcustom aurel-pacman-program "pacman"
+  "Absolute or relative name of `pacman' program."
+  :type 'string
+  :group 'aurel)
+
+(defcustom aurel-installed-packages-check t
+  "If non-nil, check if the found packages are installed.
+If nil, searching works faster, because `aurel-pacman-program' is not
+called, but it stays unknown if a package is installed or not."
+  :type 'boolean
+  :group 'aurel)
+
+(defvar aurel-pacman-buffer-name " *aurel-pacman*"
+  "Name of the buffer used internally for pacman output.")
+
+(defvar aurel-pacman-info-line-re
+  (rx line-start
+      (group (+? (any word " ")))
+      (+ " ") ":" (+ " ")
+      (group (+ any))
+      line-end)
+  "Regexp matching a line of pacman query info output.
+Contain 2 parenthesized groups: parameter name and its value.")
+
+(defun aurel-call-pacman (&optional buffer &rest args)
+  "Call `aurel-pacman-program' with arguments ARGS.
+Insert output in BUFFER.  If it is nil, use `aurel-pacman-buffer-name'.
+Return numeric exit status."
+  (let ((pacman (executable-find aurel-pacman-program)))
+    (or pacman
+        (error (concat "Couldn't find '%s'.\n"
+                       "Set aurel-pacman-program to a proper value")
+               aurel-pacman-program))
+    (with-current-buffer
+        (or buffer (get-buffer-create aurel-pacman-buffer-name))
+      (erase-buffer)
+      (apply 'call-process pacman nil t nil args))))
+
+(defun aurel-get-installed-packages-info (&rest names)
+  "Return information about installed packages NAMES.
+Each name from NAMES should be a string (a name of a package).
+Returning value is a list of alists with installed package
+parameters (strings from `aurel-installed-param-alist') and their
+values."
+  (let ((buf (get-buffer-create aurel-pacman-buffer-name)))
+    (apply 'aurel-call-pacman buf "--query" "--info" names)
+    (aurel-pacman-query-buffer-parse buf)))
+
+(defun aurel-pacman-query-buffer-parse (&optional buffer)
+  "Parse BUFFER with packages info.
+BUFFER should contain an output returned by 'pacman -Qi' command.
+If BUFFER is nil, use `aurel-pacman-buffer-name'.
+Return list of alists with parameter names and values."
+  (with-current-buffer
+      (or buffer (get-buffer-create aurel-pacman-buffer-name))
+    (let ((max (point-max))
+          (beg (point-min))
+          end info)
+      ;; Packages info are separated with empty lines, search for those
+      ;; till the end of buffer
+      (cl-loop
+       do (progn
+            (goto-char beg)
+            (setq end (re-search-forward "^\n" nil t))
+            (and end
+                 (setq info (aurel-pacman-query-region-parse beg end)
+                       beg end)))
+       while end
+       if info collect info))))
+
+(defun aurel-pacman-query-region-parse (beg end)
+  "Parse text (package info) in current buffer from BEG to END.
+Parsing region should be an output for one package returned by
+'pacman -Qi' command.
+Return alist with parameter names and values."
+  ;; TODO parse multiline parameters
+  (goto-char beg)
+  (let (point)
+    (cl-loop
+     do (setq point (re-search-forward
+                     aurel-pacman-info-line-re end t))
+     while point
+     collect (cons (match-string 1) (match-string 2)))))
 
 
 ;;; Package parameters
 
-(defvar aurel-param-alist
+(defvar aurel-aur-param-alist
   '((pkg-url     . "URLPath")
     (home-url    . "URL")
     (last-date   . "LastModified")
@@ -138,35 +247,79 @@ INFO is alist of package parameters and values (see `aurel-info')."
     (maintainer  . "Maintainer"))
   "Association list of symbols and names of package info parameters.
 Car of each assoc is a symbol used in code of this package.
-Cdr - is a parameter name (string) returned by the server.")
+Cdr - is a parameter name (string) returned by the AUR server.")
+
+(defvar aurel-pacman-param-alist
+  '((installed-name    . "Name")
+    (installed-version . "Version")
+    (architecture      . "Architecture")
+    (provides          . "Provides")
+    (depends           . "Depends On")
+    (required          . "Required By")
+    (optional-for      . "Optional For")
+    (conflicts         . "Conflicts With")
+    (replaces          . "Replaces")
+    (installed-size    . "Installed Size")
+    (packager          . "Packager")
+    (build-date        . "Build Date")
+    (install-date      . "Install Date"))
+  "Association list of symbols and names of package info parameters.
+Car of each assoc is a symbol used in code of this package.
+Cdr - is a parameter name (string) returned by pacman.")
 
 (defvar aurel-param-description-alist
-  '((pkg-url     . "Download URL")
-    (home-url    . "Home Page")
-    (aur-url     . "AUR Page")
-    (last-date   . "Last Modified")
-    (first-date  . "Submitted")
-    (outdated    . "Out Of Date")
-    (votes       . "Votes")
-    (license     . "License")
-    (description . "Description")
-    (category    . "Category")
-    (version     . "Version")
-    (name        . "Name")
-    (id          . "ID")
-    (maintainer  . "Maintainer"))
+  '((pkg-url           . "Download URL")
+    (home-url          . "Home Page")
+    (aur-url           . "AUR Page")
+    (last-date         . "Last Modified")
+    (first-date        . "Submitted")
+    (outdated          . "Out Of Date")
+    (votes             . "Votes")
+    (license           . "License")
+    (description       . "Description")
+    (category          . "Category")
+    (version           . "Version")
+    (name              . "Name")
+    (id                . "ID")
+    (maintainer        . "Maintainer")
+    (installed-name    . "Name")
+    (installed-version . "Version")
+    (architecture      . "Architecture")
+    (provides          . "Provides")
+    (depends           . "Depends On")
+    (required          . "Required By")
+    (optional-for      . "Optional For")
+    (conflicts         . "Conflicts With")
+    (replaces          . "Replaces")
+    (installed-size    . "Size")
+    (packager          . "Packager")
+    (build-date        . "Build Date")
+    (install-date      . "Install Date"))
   "Association list of symbols and descriptions of parameters.
 Descriptions are used for displaying package information.
-Symbols are either from `aurel-param-alist' or are added by
-filter functions.  See `aurel-apply-filters' for details.")
+Symbols are either from `aurel-aur-param-alist', from
+`aurel-pacman-param-alist' or are added by filter functions.  See
+`aurel-apply-filters' for details.")
 
-(defun aurel-get-param-name (param-symbol)
-  "Return a name of a parameter PARAM-SYMBOL."
-  (cdr (assoc param-symbol aurel-param-alist)))
+(defun aurel-get-aur-param-name (param-symbol)
+  "Return a name (string) of a parameter.
+PARAM-SYMBOL is a symbol from `aurel-aur-param-alist'."
+  (cdr (assoc param-symbol aurel-aur-param-alist)))
 
-(defun aurel-get-param-symbol (param-name)
-  "Return a symbol of a parameter PARAM-NAME."
-  (car (rassoc param-name aurel-param-alist)))
+(defun aurel-get-aur-param-symbol (param-name)
+  "Return a symbol name of a parameter.
+PARAM-NAME is a string from `aurel-aur-param-alist'."
+  (car (rassoc param-name aurel-aur-param-alist)))
+
+(defun aurel-get-pacman-param-name (param-symbol)
+  "Return a name (string) of a parameter.
+PARAM-SYMBOL is a symbol from `aurel-pacman-param-alist'."
+  (cdr (assoc param-symbol aurel-pacman-param-alist)))
+
+(defun aurel-get-pacman-param-symbol (param-name)
+  "Return a symbol name of a parameter.
+PARAM-NAME is a string from `aurel-pacman-param-alist'."
+  (car (rassoc param-name aurel-pacman-param-alist)))
 
 (defun aurel-get-param-description (param-symbol)
   "Return a description of a parameter PARAM-SYMBOL."
@@ -186,17 +339,6 @@ filter functions.  See `aurel-apply-filters' for details.")
 
 ;;; Filters for processing package info
 
-(defcustom aurel-empty-string "(None)"
-  "String used for empty values of package parameters."
-  :type 'string
-  :group 'aurel)
-
-(defcustom aurel-date-format "%Y-%m-%d %T"
-  "Time format used to represent submit and last dates of a package.
-For information about time formats, see `format-time-string'."
-  :type 'string
-  :group 'aurel)
-
 (defvar aurel-categories
   [nil "None" "daemons" "devel" "editors"
        "emulators" "games" "gnome" "i18n" "kde" "lib"
@@ -213,12 +355,12 @@ Used in `aurel-filter-contains-every-string'.")
   "List of strings, a package info should match.
 Used in `aurel-filter-contains-every-string'.")
 
-(defvar aurel-filters
-  '(aurel-filter-intern aurel-filter-contains-every-string
-    aurel-filter-empty aurel-filter-date
+(defvar aurel-aur-filters
+  '(aurel-aur-filter-intern aurel-filter-contains-every-string
+    aurel-aur-filter-date
     aurel-filter-outdated aurel-filter-category
     aurel-filter-pkg-url aurel-filter-aur-url)
-  "List of default filter functions applied to a package info.
+  "List of filter functions applied to a package info got from AUR.
 
 Each filter function should accept a single argument - info alist
 with package parameters and should return info alist or
@@ -227,45 +369,76 @@ modify associations or add the new ones to the alist.  In the
 latter case you might want to add descriptions of the added
 symbols into `aurel-param-description-alist'.
 
-`aurel-filter-intern' should be the first symbol in the list as
+`aurel-aur-filter-intern' should be the first symbol in the list as
 other filters use symbols for working with info parameters (see
-`aurel-param-alist').")
+`aurel-aur-param-alist').
 
-(defun aurel-apply-filters (info &optional filters)
+For more information, see `aurel-receive-packages-info'.")
+
+(defvar aurel-pacman-filters
+  '(aurel-pacman-filter-intern aurel-pacman-filter-date)
+"List of filter functions applied to a package info got from pacman.
+
+`aurel-pacman-filter-intern' should be the first symbol in the list as
+other filters use symbols for working with info parameters (see
+`aurel-pacman-param-alist').
+
+For more information, see `aurel-aur-filters' and
+`aurel-receive-packages-info'.")
+
+(defvar aurel-final-filters
+  '(aurel-filter-empty)
+  "List of filter functions applied to a package info.
+For more information, see `aurel-receive-packages-info'.")
+
+(defun aurel-apply-filters (info filters)
   "Apply functions from FILTERS list to a package INFO.
 
 INFO is alist with package parameters.  It is passed as an
 argument to the first function from FILTERS, the returned result
 is passed to the second function from that list and so on.
 
-If FILTERS is nil, use `aurel-filters'.
-
 Return filtered info (result of the last filter).  Return nil, if
 one of the FILTERS returns nil (do not call the rest filters)."
-  (or filters
-      (setq filters aurel-filters))
   (cl-loop for fun in filters
            do (setq info (funcall fun info))
            while info
            finally return info))
 
-(defun aurel-filter-intern (info)
+(defun aurel-filter-intern (info param-fun &optional warning)
   "Replace names of parameters with symbols in a package INFO.
 INFO is alist of parameter names (strings) and values.
-Return modified info.
-For names and symbols of parameters, see `aurel-param-alist'."
+PARAM-FUN is a function for getting parameter internal symbol by
+its name (string).
+If WARNING is non-nil, show a message if unknown parameter is found.
+Return modified info."
   (delq nil
         (mapcar
          (lambda (param)
            (let* ((param-name (car param))
-                  (param-symbol (aurel-get-param-symbol param-name))
+                  (param-symbol (funcall param-fun param-name))
                   (param-val (cdr param)))
              (if param-symbol
                  (cons param-symbol param-val)
-               (message "Warning: unknown parameter '%s'. It will be omitted."
-                        param-name)
+               (and warning
+                    (message "Warning: unknown parameter '%s'. It will be omitted."
+                             param-name))
                nil)))
          info)))
+
+(defun aurel-aur-filter-intern (info)
+  "Replace names of parameters with symbols in a package INFO.
+INFO is alist of parameter names (strings) from
+`aurel-aur-param-alist' and their values.
+Return modified info."
+  (aurel-filter-intern info 'aurel-get-aur-param-symbol t))
+
+(defun aurel-pacman-filter-intern (info)
+  "Replace names of parameters with symbols in a package INFO.
+INFO is alist of parameter names (strings) from
+`aurel-pacman-param-alist' and their values.
+Return modified info."
+  (aurel-filter-intern info 'aurel-get-pacman-param-symbol))
 
 (defun aurel-filter-contains-every-string (info)
   "Check if a package INFO contains all necessary strings.
@@ -291,28 +464,49 @@ Pass the check (return INFO), if `aurel-filter-strings' or
 INFO is alist of parameter names (strings) and values.
 Return modified info."
   (dolist (param info info)
-    (unless (cdr param)
-      (setcdr param aurel-empty-string))))
+    (let ((val (cdr param)))
+      (when (or (null val)
+                (equal val "None"))
+        (setcdr param aurel-empty-string)))))
 
-(defun aurel-filter-date (info)
-  "Format date parameters of a package INFO with `aurel-date-format'.
+(defun aurel-filter-date (info fun &rest params)
+  "Format date parameters PARAMS of a package INFO.
 INFO is alist of parameter symbols and values.
+FUN is a function taking parameter value as an argument and
+returning time value.  Use `aurel-date-format' for formatting.
 Return modified info."
   (dolist (param info info)
     (let ((param-name (car param))
           (param-val  (cdr param)))
-      (when (or (equal param-name 'first-date)
-                (equal param-name 'last-date))
+      (when (memq param-name params)
         (setcdr param
                 (format-time-string aurel-date-format
-                                    (seconds-to-time param-val)))))))
+                                    (funcall fun param-val)))))))
+
+(defun aurel-aur-filter-date (info)
+  "Format date parameters of a package INFO with `aurel-date-format'.
+Formatted parameters: `first-date', `last-date'.
+INFO is alist of parameter symbols and values.
+Return modified info."
+  (aurel-filter-date info 'seconds-to-time 'first-date 'last-date))
+
+(defun aurel-pacman-filter-date (info)
+  "Format date parameters of a package INFO with `aurel-date-format'.
+Formatted parameters: `install-date', `build-date'.
+INFO is alist of parameter symbols and values.
+Return modified info."
+  (aurel-filter-date info 'date-to-time 'install-date 'build-date))
 
 (defun aurel-filter-outdated (info)
-  "Replace 1/0 with Yes/No in `outdated' parameter of a package INFO.
+  "Change `outdated' parameter of a package INFO.
+Replace 1/0 with `aurel-outdated-string'/`aurel-not-outdated-string'.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (let ((param (assoc 'outdated info)))
-    (setcdr param (if (= 0 (cdr param)) "No" "Yes")))
+    (setcdr param
+            (if (= 0 (cdr param))
+                aurel-not-outdated-string
+              aurel-outdated-string)))
   info)
 
 (defun aurel-filter-category (info)
@@ -341,6 +535,75 @@ Return modified info."
          (url-expand-file-name
           (concat "packages/" (aurel-get-param-val 'name info))
           aurel-base-url))))
+
+
+;;; Backend
+
+(defun aurel-receive-packages-info (url)
+  "Return information about the packages from URL.
+
+Information is received with `aurel-get-aur-packages-info', then
+it is passed through `aurel-aur-filters' with
+`aurel-apply-filters'.  If `aurel-installed-packages-check' is
+non-nil, additional information about installed packages is
+received with `aurel-get-installed-packages-info' and is passed
+through `aurel-installed-filters'.  Finally packages info is passed
+through `aurel-final-filters'.
+
+Returning value is alist, each element of which has a form:
+
+  (ID . INFO)
+
+ID is a package id (number).
+INFO is alist of package parameters and values (see `aurel-info')."
+  ;; To speed-up the process, pacman should be called once with the
+  ;; names of found packages (instead of calling it for each name).  So
+  ;; we need to know the names at first, that's why we don't use a
+  ;; single filters variable: at first we filter info received from AUR,
+  ;; then we add information about installed packages from pacman and
+  ;; finally filter the whole info.
+  (let (aur-info-list aur-info-alist
+        pac-info-list pac-info-alist
+        info-list)
+    ;; Receive and process information from AUR server
+    (setq aur-info-list  (aurel-get-aur-packages-info url)
+          aur-info-alist (aurel-get-filtered-alist
+                          aur-info-list aurel-aur-filters 'name))
+    ;; Receive and process information from pacman
+    (when aurel-installed-packages-check
+      (setq pac-info-list  (apply 'aurel-get-installed-packages-info
+                                  (mapcar #'car aur-info-alist))
+            pac-info-alist (aurel-get-filtered-alist
+                            pac-info-list
+                            aurel-pacman-filters
+                            'installed-name)))
+    ;; Join info and do final processing
+    (setq info-list
+          (mapcar (lambda (aur-info-assoc)
+                    (let* ((name (car aur-info-assoc))
+                           (pac-info-assoc (assoc name pac-info-alist)))
+                      (append (cdr aur-info-assoc)
+                              (cdr pac-info-assoc))))
+                  aur-info-alist))
+    (aurel-get-filtered-alist info-list aurel-final-filters 'id)))
+
+(defun aurel-get-filtered-alist (info-list filters param)
+  "Return alist with filtered packages info.
+INFO-LIST is a list of packages info.  Each info is passed through
+FILTERS with `aurel-apply-filters'.
+
+Each association of a returned value has a form:
+
+  (PARAM-VAL . INFO)
+
+PARAM-VAL is a value of a parameter PARAM.
+INFO is a filtered package info."
+  (delq nil                             ; ignore filtered (empty) info
+        (mapcar (lambda (info)
+                  (let ((info (aurel-apply-filters info filters)))
+                    (and info
+                         (cons (aurel-get-param-val param info) info))))
+                info-list)))
 
 
 ;;; History
@@ -733,13 +996,18 @@ Use parameters from `aurel-list-column-format'."
            (info (cdr pkg)))
        (list id
              (apply #'vector
-                    (mapcar (lambda (col-spec)
-                              (let ((val (aurel-get-param-val
-                                          (car col-spec) info)))
-                                (if (numberp val)
-                                    (number-to-string val)
-                                  val)))
-                            aurel-list-column-format)))))
+                    (mapcar
+                     (lambda (col-spec)
+                       (let* ((param (car col-spec))
+                              (val (aurel-get-param-val param info)))
+                         (aurel-get-string
+                          val
+                          ;; colorize outdated names
+                          (and (eq param 'name)
+                               (equal (aurel-get-param-val 'outdated info)
+                                      aurel-outdated-string)
+                               'aurel-info-outdated))))
+                     aurel-list-column-format)))))
    list))
 
 (defun aurel-list-get-package-info ()
@@ -803,7 +1071,7 @@ Use `aurel-list-download-function'."
   :group 'aurel-info)
 
 (defface aurel-info-version
-  '((t))
+  '((t :inherit font-lock-builtin-face))
   "Face used for a version of a package."
   :group 'aurel-info)
 
@@ -842,12 +1110,17 @@ Use `aurel-list-download-function'."
   "Face used for dates."
   :group 'aurel-info)
 
+(defface aurel-info-size
+  '((t :inherit font-lock-variable-name-face))
+  "Face used for size of installed package."
+  :group 'aurel-info)
+
 (defcustom aurel-info-buffer-name "*AUR Package Info*"
   "Default name of the buffer with information about an AUR package."
   :type 'string
   :group 'aurel-info)
 
-(defcustom aurel-info-format "%-14s: "
+(defcustom aurel-info-format "%-16s: "
   "String used to format a description of each package parameter.
 It should be a '%s'-sequence.  After inserting a description
 formatted with this string, a value of the paramter is inserted."
@@ -874,21 +1147,32 @@ If 0, the history is disabled."
   :type 'integer
   :group 'aurel-info)
 
+(defcustom aurel-info-installed-package-string
+  "\n\nThe package is installed:\n\n"
+  "String inserted in info buffer if a package is installed.
+It is inserted after printing info from AUR and before info from pacman."
+  :type 'string
+  :group 'aurel-info)
+
 (defvar aurel-info-insert-params-alist
-  '((id          . aurel-info-id)
-    (name        . aurel-info-name)
-    (maintainer  . aurel-info-insert-maintainer)
-    (version     . aurel-info-version)
-    (category    . aurel-info-category)
-    (license     . aurel-info-license)
-    (votes       . aurel-info-votes)
-    (first-date  . aurel-info-date)
-    (last-date   . aurel-info-date)
-    (description . aurel-info-insert-description)
-    (outdated    . aurel-info-insert-outdated)
-    (pkg-url     . aurel-info-insert-url)
-    (home-url    . aurel-info-insert-url)
-    (aur-url     . aurel-info-insert-url))
+  '((id                . aurel-info-id)
+    (name              . aurel-info-name)
+    (maintainer        . aurel-info-insert-maintainer)
+    (version           . aurel-info-version)
+    (installed-version . aurel-info-version)
+    (category          . aurel-info-category)
+    (license           . aurel-info-license)
+    (votes             . aurel-info-votes)
+    (first-date        . aurel-info-date)
+    (last-date         . aurel-info-date)
+    (install-date      . aurel-info-date)
+    (build-date        . aurel-info-date)
+    (description       . aurel-info-insert-description)
+    (outdated          . aurel-info-insert-outdated)
+    (pkg-url           . aurel-info-insert-url)
+    (home-url          . aurel-info-insert-url)
+    (aur-url           . aurel-info-insert-url)
+    (installed-size    . aurel-info-size))
   "Alist for inserting parameters into info buffer.
 Car of each assoc is a symbol from `aurel-param-description-alist'.
 Cdr is a symbol for inserting a value of a parameter.  If the
@@ -899,6 +1183,15 @@ it is called with the value of the parameter.")
   '(id name version maintainer description home-url aur-url
     license category votes outdated first-date last-date)
   "List of parameters displayed in package info buffer.
+Each parameter should be a symbol from `aurel-param-description-alist'.
+The order of displayed parameters is the same as in this list.
+If nil, display all parameters with no particular order.")
+
+(defvar aurel-info-installed-parameters
+  '(installed-version architecture installed-size provides depends
+    required optional-for conflicts replaces packager
+    build-date install-date)
+  "List of parameters of an installed package displayed in info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
 The order of displayed parameters is the same as in this list.
 If nil, display all parameters with no particular order.")
@@ -953,44 +1246,43 @@ If BUFFER is nil, use (create if needed) buffer with the name
 INFO should have the form of `aurel-info'."
   (let ((inhibit-read-only t))
     (erase-buffer)
-    (aurel-info-print info))
+    (apply 'aurel-info-print
+           info aurel-info-parameters)
+    (when (aurel-get-param-val 'installed-name info)
+      (insert aurel-info-installed-package-string)
+      (apply 'aurel-info-print
+             info aurel-info-installed-parameters)))
   (goto-char (point-min))
   (aurel-info-mode)
   (setq aurel-info info))
 
-(defun aurel-info-print (info)
+(defun aurel-info-print (info &rest params)
   "Insert (pretty print) package INFO into current buffer.
-Insert parameters from `aurel-info-parameters'."
-  (let ((params (or aurel-info-parameters
-                    (mapcar #'car info))))
-    (mapc (lambda (param)
-            (aurel-info-print-param
-             param (aurel-get-param-val param info)))
-          params)))
+Each element from PARAMS is a parameter to insert (symbol from
+`aurel-param-description-alist'."
+  (mapc (lambda (param)
+          (aurel-info-print-param
+           param (aurel-get-param-val param info)))
+        params))
 
 (defun aurel-info-print-param (param val)
   "Insert description and value VAL of a parameter PARAM at point.
 PARAM is a symbol from `aurel-param-description-alist'.
-VAL can be a string or a number.
 Use `aurel-info-format' to format descriptions of parameters."
-  (when (numberp val)
-    (setq val (number-to-string val)))
   (let ((desc (aurel-get-param-description param))
         (insert-val (cdr (assoc param
                                 aurel-info-insert-params-alist))))
     (insert (format aurel-info-format desc))
-    (cond
-     ((functionp insert-val)
-      (funcall insert-val val))
-     ((facep insert-val)
-      (insert (propertize val 'face insert-val)))
-     (t (insert val)))
+    (if (functionp insert-val)
+        (funcall insert-val val)
+      (insert (aurel-get-string val
+                                (and (facep insert-val) insert-val))))
     (insert "\n")))
 
 (defun aurel-info-insert-maintainer (name)
   "Make button from maintainer NAME and insert it at point."
   (if (string= name aurel-empty-string)
-      (insert (propertize name 'face 'aurel-info-maintainer))
+      (insert name)
     (insert-button
      name
      'face 'aurel-info-maintainer
