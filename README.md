@@ -112,13 +112,25 @@ those like this:
 ```
 
 Descriptions of package parameters (displayed in `aurel-info-mode`
-buffer and as column titles in `aurel-list-mode` buffer) can be changed
-with `aurel-param-description-alist` variable.
+buffer) can be changed with `aurel-param-description-alist` variable.
+Columns in `aurel-list-mode` buffer has the same titles as these
+description, unless they are not set in `aurel-list-column-name-alist`.
 
 Various aspects of displaying information about a package can be
 configured with `aurel-info-parameters`,
-`aurel-info-insert-params-alist`, `aurel-info-format` and
-`aurel-info-fill-column` variables and with `aurel-info-...` faces.
+`aurel-info-installed-parameters`, `aurel-info-insert-params-alist`,
+`aurel-info-format`, `aurel-info-fill-column`,
+`aurel-info-installed-package-string` variables and with
+`aurel-info-...` faces.
+
+By default after receiving information about the packages from AUR
+server, pacman is called to get additional information about installed
+packages.  If you want to disable that (to make the process a bit
+faster), use the following:
+
+```lisp
+(setq aurel-installed-packages-check nil)
+```
 
 ### Package list
 
