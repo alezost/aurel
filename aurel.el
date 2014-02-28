@@ -170,7 +170,14 @@ filter functions.  See `aurel-apply-filters' for details.")
 
 (defun aurel-get-param-description (param-symbol)
   "Return a description of a parameter PARAM-SYMBOL."
-  (cdr (assoc param-symbol aurel-param-description-alist)))
+  (let ((desc (cdr (assoc param-symbol
+                          aurel-param-description-alist))))
+    (or desc
+        (progn
+          (setq desc (symbol-name param-symbol))
+          (message "Couldn't find '%s' in aurel-param-description-alist."
+                   desc)
+          desc))))
 
 (defun aurel-get-param-val (param info)
   "Return a value of a parameter PARAM from a package INFO."
