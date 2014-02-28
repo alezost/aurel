@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.2.2
+;; Version: 0.3
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -47,6 +47,10 @@
 ;; about a package, press "RET" on a package line.  To download a
 ;; package, press "d" (don't forget to set `aurel-download-directory'
 ;; before).
+
+;; After receiving information about the packages, pacman is called to
+;; find what packages are installed.  To disable that, set
+;; `aurel-installed-packages-check' to nil.
 
 ;; For full description, see <https://github.com/alezost/aurel>.
 
