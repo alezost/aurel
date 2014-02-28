@@ -912,6 +912,13 @@ If 0, the history is disabled."
   :type 'integer
   :group 'aurel-list)
 
+(defvar aurel-list-column-name-alist
+  '((installed-version . "Installed"))
+  "Alist of parameter names used as titles for columns.
+Each association is a cons of parameter symbol and column name.
+If no parameter is not found in this alist, the value from
+`aurel-param-description-alist' is used for a column name.")
+
 (defvar aurel-list nil
   "Alist with packages info.
 
@@ -954,9 +961,12 @@ If UNIQUE is non-nil, make the name unique."
   (setq default-directory aurel-download-directory)
   (setq tabulated-list-format
         (apply #'vector
-               (mapcar (lambda (col-spec)
-                         (cons (aurel-get-param-description (car col-spec))
-                               (cdr col-spec)))
+               (mapcar
+                (lambda (col-spec)
+                  (let ((name (car col-spec)))
+                    (cons (or (cdr (assoc name aurel-list-column-name-alist))
+                              (aurel-get-param-description name))
+                          (cdr col-spec))))
                        aurel-list-column-format)))
   (setq tabulated-list-sort-key
         (list (aurel-get-param-description 'name)))
