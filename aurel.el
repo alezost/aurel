@@ -898,16 +898,33 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   "Buffer with a list of AUR packages."
   :group 'aurel)
 
+(defface aurel-list-marked
+  '((t :inherit dired-marked))
+  "Face used for the marked packages."
+  :group 'aurel-list)
+
 (defcustom aurel-list-buffer-name "*AUR Package List*"
   "Default name of the buffer with a list of AUR packages."
   :type 'string
   :group 'aurel-list)
 
 (defcustom aurel-list-download-function 'aurel-download-unpack
-  "Function used for downloading AUR package from package list buffer.
+  "Function used for downloading a single AUR package from list buffer.
 It should accept 2 arguments: URL of a downloading file and a
 destination directory."
   :type 'function
+  :group 'aurel-list)
+
+(defcustom aurel-list-multi-download-function 'aurel-download-unpack
+  "Function used for downloading multiple AUR packages from list buffer.
+It should accept 2 arguments: URL of a downloading file and a
+destination directory."
+  :type 'function
+  :group 'aurel-list)
+
+(defcustom aurel-list-multi-download-no-confirm nil
+  "If non-nil, do not ask to confirm if multiple packages are downloaded."
+  :type 'boolean
   :group 'aurel-list)
 
 (defcustom aurel-list-history-size 10
@@ -929,6 +946,11 @@ If no parameter is not found in this alist, the value from
 Car of each assoc is a package ID (number).
 Cdr - is alist of package info of the form of `aurel-info'.")
 
+(defvar aurel-list-marks nil
+  "Alist of current marks.
+Each association is a cons cell of a package ID and overlay used
+to highlight a line with this package.")
+
 (defvar aurel-list-column-format
   '((name 25 t)
     (version 15 nil)
@@ -946,6 +968,11 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (define-key map "d" 'aurel-list-download-package)
     (define-key map "l" 'aurel-history-back)
     (define-key map "r" 'aurel-history-forward)
+    (define-key map "m" 'aurel-list-mark)
+    (define-key map "u" 'aurel-list-unmark)
+    (define-key map "M" 'aurel-list-mark-all)
+    (define-key map "U" 'aurel-list-unmark-all)
+    (define-key map "\177" 'aurel-list-unmark-backward)
     map)
   "Keymap for `aurel-list-mode'.")
 
@@ -962,6 +989,7 @@ If UNIQUE is non-nil, make the name unique."
 
 \\{aurel-list-mode-map}"
   (make-local-variable 'aurel-list)
+  (make-local-variable 'aurel-list-marks)
   (setq-local aurel-history-size aurel-list-history-size)
   (setq default-directory aurel-download-directory)
   (setq tabulated-list-format
@@ -972,7 +1000,7 @@ If UNIQUE is non-nil, make the name unique."
                     (cons (or (cdr (assoc name aurel-list-column-name-alist))
                               (aurel-get-param-description name))
                           (cdr col-spec))))
-                       aurel-list-column-format)))
+                aurel-list-column-format)))
   (setq tabulated-list-sort-key
         (list (aurel-get-param-description 'name)))
   (tabulated-list-init-header))
@@ -1025,12 +1053,13 @@ Use parameters from `aurel-list-column-format'."
                      aurel-list-column-format)))))
    list))
 
-(defun aurel-list-get-package-info ()
-  "Return package info for the current package."
-  (let ((id (tabulated-list-get-id)))
-    (if id
-	(cdr (assoc id aurel-list))
-      (user-error "No package here"))))
+(defun aurel-list-get-package-info (&optional id)
+  "Return info for a package with ID or for the current package."
+  (or id
+      (setq id (tabulated-list-get-id))
+      (user-error "No package here"))
+  (or (cdr (assoc id aurel-list))
+      (error "No package with ID %s in aurel-list" id)))
 
 (defun aurel-list-describe-package (&optional arg)
   "Describe the current package.
@@ -1040,23 +1069,90 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
                    (aurel-info-get-buffer-name arg)))
 
 (defun aurel-list-download-package ()
-  "Download current package.
+  "Download marked packages or the current package if nothing is marked.
 
 With prefix, prompt for a directory with `aurel-directory-prompt'
 to save the package; without prefix, save to
 `aurel-download-directory' without prompting.
 
-Use `aurel-list-download-function'."
+Use `aurel-list-download-function' if a single package is
+downloaded or `aurel-list-multi-download-function' otherwise."
   (interactive)
   (or (derived-mode-p 'aurel-list-mode)
       (user-error "Current buffer is not in aurel-list-mode"))
   (let ((dir (if current-prefix-arg
                  (read-directory-name aurel-directory-prompt
                                       aurel-download-directory)
-               aurel-download-directory)))
-    (funcall aurel-list-download-function
-             (aurel-get-param-val 'pkg-url (aurel-list-get-package-info))
-             dir)))
+               aurel-download-directory))
+        (count (length aurel-list-marks))
+        (ids (mapcar #'car aurel-list-marks)))
+    (if (> count 1)
+        (when (or aurel-list-multi-download-no-confirm
+                  (y-or-n-p (format "Download %d marked packages? "
+                                    count)))
+          (mapcar (lambda (id)
+                    (funcall aurel-list-multi-download-function
+                             (aurel-get-param-val
+                              'pkg-url (aurel-list-get-package-info id))
+                             dir))
+                  ids))
+      (funcall aurel-list-download-function
+               (aurel-get-param-val
+                'pkg-url (aurel-list-get-package-info (car ids)))
+               dir))))
+
+;;; Marking packages
+
+(defun aurel-list-mark ()
+  "Mark a package for downloading and move to the next line."
+  (interactive)
+  (let ((id (tabulated-list-get-id)))
+    (when id
+      (let ((beg (line-beginning-position))
+            (end (line-end-position)))
+        (unless (overlays-at beg)
+          (let ((overlay (make-overlay beg end)))
+            (overlay-put overlay 'face 'aurel-list-marked)
+            (add-to-list 'aurel-list-marks
+                         (cons id overlay))))))
+    (forward-line)))
+
+(defun aurel-list-mark-all ()
+  "Mark all packages for downloading."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (not (= (point) (point-max)))
+      (aurel-list-mark))))
+
+(defun aurel-list--unmark ()
+  "Unmark a package on the current line."
+  (let ((id (tabulated-list-get-id)))
+    (setq aurel-list-marks
+          (cl-delete-if (lambda (assoc)
+                          (when (equal id (car assoc))
+                            (delete-overlay (cdr assoc))
+                            t))
+                        aurel-list-marks))))
+
+(defun aurel-list-unmark ()
+  "Unmark a package and move to the next line."
+  (interactive)
+  (aurel-list--unmark)
+  (forward-line))
+
+(defun aurel-list-unmark-backward ()
+  "Move up one line and unmark a package on that line."
+  (interactive)
+  (forward-line -1)
+  (aurel-list--unmark))
+
+(defun aurel-list-unmark-all ()
+  "Unmark all packages."
+  (interactive)
+  (dolist (assoc aurel-list-marks)
+    (delete-overlay (cdr assoc)))
+  (setq aurel-list-marks nil))
 
 
 ;;; Package info
