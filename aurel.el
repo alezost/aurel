@@ -92,14 +92,14 @@ For information about time formats, see `format-time-string'."
 If VAL is nil, return `aurel-empty-string'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is specified, propertize returned string with this FACE."
-  (if val
-      (progn
-        (or (stringp val)
-            (setq val (prin1-to-string val)))
-        (if face
-            (propertize val 'face face)
-          val))
-    aurel-empty-string))
+  (if (or (null val)
+          (equal val aurel-empty-string))
+      aurel-empty-string
+    (or (stringp val)
+        (setq val (prin1-to-string val)))
+    (if face
+        (propertize val 'face face)
+      val)))
 
 
 ;;; Interacting with AUR server
