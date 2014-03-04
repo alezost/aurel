@@ -82,7 +82,7 @@
   :group 'aurel)
 
 (defcustom aurel-date-format "%Y-%m-%d %T"
-  "Time format used to represent submit and last dates of a package.
+  "Time format used to represent time parameters of a package.
 For information about time formats, see `format-time-string'."
   :type 'string
   :group 'aurel)
