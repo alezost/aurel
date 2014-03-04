@@ -1047,6 +1047,11 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   :type 'string
   :group 'aurel-list)
 
+(defcustom aurel-list-mode-name "AURel-List"
+  "Default name of `aurel-list-mode', displayed in the mode line."
+  :type 'string
+  :group 'aurel-list)
+
 (defcustom aurel-list-download-function 'aurel-download-unpack
   "Function used for downloading a single AUR package from list buffer.
 It should accept 2 arguments: URL of a downloading file and a
@@ -1124,7 +1129,7 @@ If UNIQUE is non-nil, make the name unique."
     aurel-list-buffer-name))
 
 (define-derived-mode aurel-list-mode
-  tabulated-list-mode "AURel-list"
+  tabulated-list-mode aurel-list-mode-name
   "Major mode for browsing AUR packages.
 
 \\{aurel-list-mode-map}"
@@ -1413,6 +1418,11 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   :type 'string
   :group 'aurel-info)
 
+(defcustom aurel-info-mode-name "AURel-Info"
+  "Default name of `aurel-info-mode', displayed in the mode line."
+  :type 'string
+  :group 'aurel-info)
+
 (defcustom aurel-info-format "%-16s: "
   "String used to format a description of each package parameter.
 It should be a '%s'-sequence.  After inserting a description
@@ -1526,7 +1536,8 @@ If UNIQUE is non-nil, make the name unique."
       (generate-new-buffer aurel-info-buffer-name)
     aurel-info-buffer-name))
 
-(define-derived-mode aurel-info-mode nil "AURel-info"
+(define-derived-mode aurel-info-mode
+    nil aurel-info-mode-name
   "Major mode for displaying information about an AUR package.
 
 \\{aurel-info-mode-map}"
