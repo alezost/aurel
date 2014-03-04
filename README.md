@@ -9,7 +9,7 @@ interface you use Emacs interface.
 The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
 
-You may look at a
+You may look at the [screenshots](#screenshots) below or at the
 [gif demonstration](http://storage6.static.itmages.ru/i/14/0214/h_1392417865_1725281_347829e62b.gif)
 made by [Ivaylo Kuzev](https://github.com/ivoarch) to get an idea how
 aurel looks like.
@@ -44,6 +44,11 @@ Add the following lines to your `.emacs`.
   ```lisp
   (setq aurel-download-directory "~/abs")
   ```
+
+### AUR
+
+If you prefer to install everything with pacman, there is
+[aurel](https://aur.archlinux.org/packages/aurel) package.
 
 ## Usage
 
@@ -94,39 +99,30 @@ packages by this maintainer will happen.
 
 Each aurel buffer has its own history similar to the history of the
 Emacs `help` or `Info` modes.  You can move backward/forward by the
-history with <kbd>l</kbd>/<kbd>r</kbd>.  If you want to change the
-number of stored elements (or to disable the history), use
+history with <kbd>l</kbd>/<kbd>r</kbd> and refresh information with
+<kbd>g</kbd> (confirmation can be disabled with
+`aurel-revert-no-confirm` variable).  If you want to change the number
+of stored elements (or to disable the history), use
 `aurel-info-history-size` and `aurel-list-history-size` variables.
 
 ## Configuration
 
-User options (not much currently) can be explored with
-``M-x customize-group RET aurel``.
+User options can be explored with ``M-x customize-group RET aurel``.
 
-If you don't like the names of info and list buffers, you can change
-those like this:
+If you don't like the names of info and list modes and buffers, you can
+change those, for example:
 
 ```lisp
-(setq aurel-list-buffer-name "*aur-list*"
+(setq aurel-list-mode-name "aurel-list"
+      aurel-info-mode-name "aurel-info"
+      aurel-list-buffer-name "*aur-list*"
       aurel-info-buffer-name "*aur-info*")
 ```
-
-Descriptions of package parameters (displayed in `aurel-info-mode`
-buffer) can be changed with `aurel-param-description-alist` variable.
-Columns in `aurel-list-mode` buffer has the same titles as these
-description, unless they are not set in `aurel-list-column-name-alist`.
-
-Various aspects of displaying information about a package can be
-configured with `aurel-info-parameters`,
-`aurel-info-installed-parameters`, `aurel-info-insert-params-alist`,
-`aurel-info-format`, `aurel-info-fill-column`,
-`aurel-info-installed-package-string` variables and with
-`aurel-info-...` faces.
 
 By default after receiving information about the packages from AUR
 server, pacman is called to get additional information about installed
 packages.  If you want to disable that (to make the process a bit
-faster), use the following:
+faster or if you don't have pacman installed), use the following:
 
 ```lisp
 (setq aurel-installed-packages-check nil)
@@ -142,24 +138,72 @@ add **sortable** columns with maintainer and votes, try the following:
 
 ```lisp
 (setq aurel-list-column-format
-      '((name 25 t)
-        (maintainer 20 t)
-        (votes 8
-               (lambda (a b)
-                 (> (string-to-number (aref (cadr a) 2))
-                    (string-to-number (aref (cadr b) 2)))))
+      '((name 20 t)
+        (maintainer 13 t)
+        (votes 5
+         (lambda (a b)
+           (> (string-to-number (aref (cadr a) 2))
+              (string-to-number (aref (cadr b) 2)))))
+        (installed-version 8 t)
         (description 30 nil)))
+```
+
+Descriptions of a package parameters (displayed in `aurel-info-mode`
+buffer) are stored in `aurel-param-description-alist` variable.  Columns
+in `aurel-list-mode` buffer have the same titles as these descriptions,
+unless they are not set in `aurel-list-column-name-alist`.  For example,
+the following shortened titles suit better the compact column format
+shown in the above example:
+
+```lisp
+(setq aurel-list-column-name-alist
+      '((votes . "V.")
+        (installed-version . "Inst.")))
+```
+
+### Package info
+
+Various aspects of displaying information about a package can be
+configured with `aurel-info-parameters`,
+`aurel-info-installed-parameters`, `aurel-info-insert-params-alist`,
+`aurel-info-format`, `aurel-info-fill-column`,
+`aurel-info-installed-package-string`, `aurel-info-ignore-empty-vals`,
+`aurel-info-show-maintainer-account` variables and with `aurel-info-...`
+faces.  For example:
+
+```lisp
+(setq aurel-info-format "%-16s"
+      aurel-info-ignore-empty-vals t
+      aurel-info-installed-package-string "\n————————————————————————————————\n\n"
+      aurel-empty-string "")
 ```
 
 ### Downloading a package
 
 You can change the default behavior of a "downloading action" with
-`aurel-info-download-function` and `aurel-list-download-function`
-variables.  Currently the following functions are available:
+`aurel-info-download-function`, `aurel-list-download-function` and
+`aurel-list-multi-download-function` (you can mark several packages for
+downloading with <kbd>m</kbd>/<kbd>M</kbd> and unmark with
+<kbd>u</kbd>/<kbd>U</kbd>/<kbd>DEL</kbd>) variables.  Currently the
+following functions are available:
 
 - `aurel-download`
 - `aurel-download-unpack` (default in a list buffer)
 - `aurel-download-unpack-dired` (default in an info buffer)
 - `aurel-download-unpack-pkgbuild`
 - `aurel-download-unpack-eshell`
+
+## Screenshots
+
+Aurel with default settings:
+
+![Default](http://i.imgur.com/okR2x9q.png)
+
+Aurel with all modifications, described in the
+[Configuration section](#configuration):
+
+![Changed](http://i.imgur.com/1JxaebN.png)
+
+In both screenshots `alect-dark` theme from
+[alect-themes](https://github.com/alezost/alect-themes) is used.
 
