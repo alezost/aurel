@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.3
+;; Version: 0.4
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -46,7 +46,12 @@
 ;; similar to a buffer containing emacs packages.  To get more info
 ;; about a package, press "RET" on a package line.  To download a
 ;; package, press "d" (don't forget to set `aurel-download-directory'
-;; before).
+;; before).  In a list buffer, you can mark several packages for
+;; downloading with "m"/"M" (and unmark with "u"/"U" and "DEL").
+
+;; It is possible to move to the previous/next displayed results with
+;; "l"/"r" (each aurel buffer has its own history) and to refresh
+;; information with "g".
 
 ;; After receiving information about the packages, pacman is called to
 ;; find what packages are installed.  To disable that, set
