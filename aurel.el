@@ -97,7 +97,7 @@ If nil, show a single matching package in info buffer."
   "Return string from VAL.
 If VAL is nil, return `aurel-empty-string'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
-If FACE is specified, propertize returned string with this FACE."
+If FACE is non-nil, propertize returned string with this FACE."
   (if (or (null val)
           (equal val aurel-empty-string))
       aurel-empty-string
@@ -1478,10 +1478,10 @@ It is inserted after printing info from AUR and before info from pacman."
     (required          . aurel-info-required)
     (optional-for      . aurel-info-optional-for)
     (installed-size    . aurel-info-size))
-  "Alist for inserting parameters into info buffer.
+  "Alist for parameters inserted into info buffer.
 Car of each assoc is a symbol from `aurel-param-description-alist'.
 Cdr is a symbol for inserting a value of a parameter.  If the
-symbol is a face name, use it for the value; if it is a function,
+symbol is a face name, it is used for the value; if it is a function,
 it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
