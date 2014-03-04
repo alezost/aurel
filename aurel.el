@@ -962,6 +962,10 @@ PACKAGE can be either a string (name) or a number (ID)."
   "Return URL for searching a maintainer by string STR."
   (aurel-get-rpc-url "msearch" str))
 
+(defun aurel-get-maintainer-account-url (maintainer)
+  "Return URL for MAINTAINER's AUR account."
+  (url-expand-file-name (concat "account/" maintainer) aurel-base-url))
+
 
 ;;; UI
 
@@ -1401,6 +1405,11 @@ It is inserted after printing info from AUR and before info from pacman."
   :type 'string
   :group 'aurel-info)
 
+(defcustom aurel-info-show-maintainer-account t
+  "If non-nil, display a link to maintainer's AUR account."
+  :type 'boolean
+  :group 'aurel-info)
+
 (defvar aurel-info-insert-params-alist
   '((id                . aurel-info-id)
     (name              . aurel-info-name)
@@ -1539,7 +1548,11 @@ Use `aurel-info-format' to format descriptions of parameters."
                (aurel-maintainer-search (button-label btn)
                                         current-prefix-arg))
      'follow-link t
-     'help-echo "mouse-2, RET: Find the packages by this maintainer")))
+     'help-echo "mouse-2, RET: Find the packages by this maintainer")
+    (when aurel-info-show-maintainer-account
+      (insert "\n"
+              (format aurel-info-format ""))
+      (aurel-info-insert-url (aurel-get-maintainer-account-url name)))))
 
 (defun aurel-info-insert-url (url)
   "Make button from URL and insert it at point."
