@@ -1423,6 +1423,11 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   :type 'string
   :group 'aurel-info)
 
+(defcustom aurel-info-ignore-empty-vals nil
+  "If non-nil, do not display empty values of package parameters."
+  :type 'boolean
+  :group 'aurel-info)
+
 (defcustom aurel-info-format "%-16s: "
   "String used to format a description of each package parameter.
 It should be a '%s'-sequence.  After inserting a description
@@ -1587,15 +1592,18 @@ Each element from PARAMS is a parameter to insert (symbol from
   "Insert description and value VAL of a parameter PARAM at point.
 PARAM is a symbol from `aurel-param-description-alist'.
 Use `aurel-info-format' to format descriptions of parameters."
-  (let ((desc (aurel-get-param-description param))
-        (insert-val (cdr (assoc param
-                                aurel-info-insert-params-alist))))
-    (insert (format aurel-info-format desc))
-    (if (functionp insert-val)
-        (funcall insert-val val)
-      (aurel-info-insert-val
-       val (and (facep insert-val) insert-val)))
-    (insert "\n")))
+  (unless (and aurel-info-ignore-empty-vals
+               (or (null val)
+                   (equal val aurel-empty-string)))
+    (let ((desc (aurel-get-param-description param))
+          (insert-val (cdr (assoc param
+                                  aurel-info-insert-params-alist))))
+      (insert (format aurel-info-format desc))
+      (if (functionp insert-val)
+          (funcall insert-val val)
+          (aurel-info-insert-val
+           val (and (facep insert-val) insert-val)))
+      (insert "\n"))))
 
 (defun aurel-info-insert-maintainer (name)
   "Make button from maintainer NAME and insert it at point."
