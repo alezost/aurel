@@ -173,7 +173,7 @@ called, but it stays unknown if a package is installed or not."
   (rx line-start
       (group (+? (any word " ")))
       (+ " ") ":" (+ " ")
-      (group (+ any))
+      (group (+ any) (* (and "\n " (+ any))))
       line-end)
   "Regexp matching a line of pacman query info output.
 Contain 2 parenthesized groups: parameter name and its value.")
@@ -229,7 +229,6 @@ Return list of alists with parameter names and values."
 Parsing region should be an output for one package returned by
 'pacman -Qi' command.
 Return alist with parameter names and values."
-  ;; TODO parse multiline parameters
   (goto-char beg)
   (let (point)
     (cl-loop
@@ -265,6 +264,10 @@ Cdr - is a parameter name (string) returned by the AUR server.")
     (architecture      . "Architecture")
     (provides          . "Provides")
     (depends           . "Depends On")
+    (depends-opt       . "Optional Deps")
+    (script            . "Install Script")
+    (reason            . "Install Reason")
+    (validated         . "Validated By")
     (required          . "Required By")
     (optional-for      . "Optional For")
     (conflicts         . "Conflicts With")
@@ -297,6 +300,10 @@ Cdr - is a parameter name (string) returned by pacman.")
     (architecture      . "Architecture")
     (provides          . "Provides")
     (depends           . "Depends On")
+    (depends-opt       . "Optional Deps")
+    (script            . "Install Script")
+    (reason            . "Install Reason")
+    (validated         . "Validated By")
     (required          . "Required By")
     (optional-for      . "Optional For")
     (conflicts         . "Conflicts With")
@@ -1366,6 +1373,41 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   "Face used for size of installed package."
   :group 'aurel-info)
 
+(defface aurel-info-provides
+  '((t :inherit font-lock-function-name-face))
+  "Face used for 'Provides' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-replaces
+  '((t :inherit aurel-info-provides))
+  "Face used for 'Replaces' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-conflicts
+  '((t :inherit aurel-info-provides))
+  "Face used for 'Conflicts With' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-depends
+  '((t))
+  "Face used for 'Depends On' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-depends-opt
+  '((t :inherit aurel-info-depends))
+  "Face used for 'Optional Deps' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-required
+  '((t))
+  "Face used for 'Required By' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-optional-for
+  '((t :inherit aurel-info-required))
+  "Face used for 'Optional For' parameter."
+  :group 'aurel-info)
+
 (defcustom aurel-info-buffer-name "*AUR Package Info*"
   "Default name of the buffer with information about an AUR package."
   :type 'string
@@ -1423,11 +1465,18 @@ It is inserted after printing info from AUR and before info from pacman."
     (last-date         . aurel-info-date)
     (install-date      . aurel-info-date)
     (build-date        . aurel-info-date)
-    (description       . aurel-info-insert-description)
+    (description       . aurel-info-description)
     (outdated          . aurel-info-insert-outdated)
     (pkg-url           . aurel-info-insert-url)
     (home-url          . aurel-info-insert-url)
     (aur-url           . aurel-info-insert-url)
+    (provides          . aurel-info-provides)
+    (replaces          . aurel-info-replaces)
+    (conflicts         . aurel-info-conflicts)
+    (depends           . aurel-info-depends)
+    (depends-opt       . aurel-info-depends-opt)
+    (required          . aurel-info-required)
+    (optional-for      . aurel-info-optional-for)
     (installed-size    . aurel-info-size))
   "Alist for inserting parameters into info buffer.
 Car of each assoc is a symbol from `aurel-param-description-alist'.
@@ -1445,8 +1494,8 @@ If nil, display all parameters with no particular order.")
 
 (defvar aurel-info-installed-parameters
   '(installed-version architecture installed-size provides depends
-    required optional-for conflicts replaces packager
-    build-date install-date)
+    depends-opt required optional-for conflicts replaces packager
+    build-date install-date script validated)
   "List of parameters of an installed package displayed in info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
 The order of displayed parameters is the same as in this list.
@@ -1533,8 +1582,8 @@ Use `aurel-info-format' to format descriptions of parameters."
     (insert (format aurel-info-format desc))
     (if (functionp insert-val)
         (funcall insert-val val)
-      (insert (aurel-get-string val
-                                (and (facep insert-val) insert-val))))
+      (aurel-info-insert-val
+       val (and (facep insert-val) insert-val)))
     (insert "\n")))
 
 (defun aurel-info-insert-maintainer (name)
@@ -1580,17 +1629,32 @@ COL controls the width for filling."
     (let ((fill-column col)) (fill-region (point-min) (point-max)))
     (buffer-string)))
 
-(defun aurel-info-insert-description (str)
-  "Format and insert string STR at point.
-Use `aurel-info-fill-column'."
-  (let ((parts (split-string (aurel-info-get-filled-string
-                              str aurel-info-fill-column)
-                             "\n")))
-    (insert (propertize (car parts) 'face 'aurel-info-description))
-    (dolist (part (cdr parts))
-      (insert "\n"
-              (format aurel-info-format "")
-              (propertize part 'face 'aurel-info-description)))))
+(defun aurel-info-insert-strings (strings &optional face)
+  "Insert STRINGS at point.
+Each string is inserted on a new line after an empty string
+formatted with `aurel-info-format'.
+If FACE is non-nil, propertize inserted lines with this FACE."
+  (dolist (str strings)
+    (insert "\n"
+            (format aurel-info-format "")
+            (aurel-get-string str face))))
+
+(defun aurel-info-insert-val (val &optional face)
+  "Format and insert parameter value VAL at point.
+If VAL is string longer than `aurel-info-fill-column', convert it
+into several shorter lines.
+If FACE is non-nil, propertize inserted line(s) with this FACE."
+  (if (stringp val)
+      (let ((strings (split-string val "\n *")))
+        (and (null (cdr strings))       ; if not multi-line
+             (> (length val) aurel-info-fill-column)
+             (setq strings
+                   (split-string (aurel-info-get-filled-string
+                                  val aurel-info-fill-column)
+                                 "\n")))
+        (insert (aurel-get-string (car strings) face))
+        (aurel-info-insert-strings (cdr strings) face))
+    (insert (aurel-get-string val face))))
 
 (defun aurel-info-download-package ()
   "Download current package.
