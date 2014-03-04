@@ -87,6 +87,12 @@ For information about time formats, see `format-time-string'."
   :type 'string
   :group 'aurel)
 
+(defcustom aurel-list-single-package nil
+  "If non-nil, list a package even if it is the one matching result.
+If nil, show a single matching package in info buffer."
+  :type 'boolean
+  :group 'aurel)
+
 (defun aurel-get-string (val &optional face)
   "Return string from VAL.
 If VAL is nil, return `aurel-empty-string'.
@@ -541,7 +547,7 @@ Return modified info."
           aurel-base-url))))
 
 
-;;; Backend
+;;; Searching/showing packages
 
 (defun aurel-receive-packages-info (url)
   "Return information about the packages from URL.
@@ -554,12 +560,7 @@ received with `aurel-get-installed-packages-info' and is passed
 through `aurel-installed-filters'.  Finally packages info is passed
 through `aurel-final-filters'.
 
-Returning value is alist, each element of which has a form:
-
-  (ID . INFO)
-
-ID is a package id (number).
-INFO is alist of package parameters and values (see `aurel-info')."
+Returning value has a form of `aurel-list'."
   ;; To speed-up the process, pacman should be called once with the
   ;; names of found packages (instead of calling it for each name).  So
   ;; we need to know the names at first, that's why we don't use a
@@ -609,6 +610,141 @@ INFO is a filtered package info."
                          (cons (aurel-get-param-val param info) info))))
                 info-list)))
 
+(defun aurel-get-packages-by-name-or-id (name-or-id)
+  "Return packages by NAME-OR-ID.
+NAME-OR-ID may be a string or a number.
+Returning value has a form of `aurel-list'."
+  (when (numberp name-or-id)
+    (setq name-or-id (number-to-string name-or-id)))
+  (aurel-receive-packages-info
+   (aurel-get-package-info-url name-or-id)))
+
+(defun aurel-get-packages-by-string (&rest strings)
+  "Return packages matching STRINGS.
+Returning value has a form of `aurel-list'."
+  ;; A hack for searching by multiple strings: the actual server search
+  ;; is done by the biggest string and the rest strings are searched in
+  ;; the results returned by the server
+  (let* ((str-list
+          ;; sort to search by the biggest (first) string
+          (sort strings
+                (lambda (a b)
+                  (> (length a) (length b)))))
+         (aurel-filter-params '(name description))
+         (aurel-filter-strings (cdr str-list)))
+    (aurel-receive-packages-info
+     (aurel-get-package-search-url (car str-list)))))
+
+(defun aurel-get-packages-by-maintainer (name)
+  "Return packages by maintainer NAME.
+Returning value has a form of `aurel-list'."
+  (aurel-receive-packages-info
+   (aurel-get-maintainer-search-url name)))
+
+(defvar aurel-search-type-alist
+  '((name-or-id . aurel-get-packages-by-name-or-id)
+    (string     . aurel-get-packages-by-string)
+    (maintainer . aurel-get-packages-by-maintainer))
+  "Alist of available search types and search functions.")
+
+(defun aurel-search-packages (type &rest vals)
+  "Search for AUR packages and return results.
+TYPE is a type of search - symbol from `aurel-search-type-alist'.
+It defines a search function which is called with VALS as
+arguments.
+Returning value has a form of `aurel-list'."
+  (let ((fun (cdr (assoc type aurel-search-type-alist))))
+    (or fun
+        (error "Wrong search type '%s'" type))
+    (apply fun vals)))
+
+(defun aurel-search-show-packages
+    (search-type search-vals &optional buffer history)
+  "Search for packages and show results in BUFFER.
+
+See `aurel-search-packages' for the meaning of SEARCH-TYPE and
+SEARCH-VALS.
+
+See `aurel-show-packages' for the meaning of BUFFER and HISTORY."
+  (aurel-show-packages
+   (apply 'aurel-search-packages search-type search-vals)
+   buffer history search-type search-vals))
+
+(defun aurel-show-packages
+    (packages &optional buffer history search-type search-vals)
+  "Show PACKAGES in BUFFER.
+
+PACKAGES should have a form of `aurel-list'.
+
+If BUFFER is a buffer object, use it; if BUFFER is nil, use a
+default buffer; otherwise, use a unique buffer.
+
+If HISTORY is nil, do not save current item in history; if it is
+`add', add item to history; if `replace', replace current item.
+History item is a proper call of `aurel-show-packages' itself.
+
+If SEARCH-TYPE and SEARCH-VALS are non-nils, they are used for
+setting reverting action.  See `aurel-set-revert-action' for
+details."
+  (let ((count (length packages)))
+    (when (> count 0)
+      (if (and (= count 1)
+               (or (eq search-type 'name-or-id)
+                   (null aurel-list-single-package)))
+          (aurel-info-show (cdar packages)
+                           (if (bufferp buffer)
+                               buffer
+                             (aurel-info-get-buffer-name buffer)))
+        (aurel-list-show packages
+                         (if (bufferp buffer)
+                             buffer
+                           (aurel-list-get-buffer-name buffer))))
+      (when (and search-type search-vals)
+        (when history
+          (aurel-history-add
+           (list (lambda (packages type vals)
+                   (aurel-show-packages
+                    packages (current-buffer) nil type vals))
+                 packages search-type search-vals)
+           (eq history 'replace)))
+        (aurel-set-revert-action search-type search-vals)))
+    (aurel-found-message packages search-type search-vals)))
+
+(defvar aurel-found-messages
+  '((name-or-id (0    "The package \"%s\" not found." "Packages not found.")
+                (1    "The package \"%s\"."))
+    (string     (0    "No packages matching %s.")
+                (1    "A single package matching %s.")
+                (many "%d packages matching %s."))
+    (maintainer (0    "No packages by maintainer %s.")
+                (1    "A single package by maintainer %s.")
+                (many "%d packages by maintainer %s.")))
+  "Alist used by `aurel-found-message'.")
+
+(defun aurel-found-message (packages search-type search-vals)
+  "Display a proper message about found PACKAGES.
+SEARCH-TYPE and SEARCH-VALS are arguments for
+`aurel-search-packages', by which the PACKAGES were found."
+  (let* ((count (length packages))
+         (found-key (if (> count 1) 'many count))
+         (type-alist (cdr (assoc search-type aurel-found-messages)))
+         (found-list (cdr (assoc found-key type-alist)))
+         (msg (if (or (= 1 (length search-vals))
+                      (null (cdr found-list)))
+                  (car found-list)
+                (cadr found-list)))
+         (args (delq nil
+                     (list
+                      (and (eq found-key 'many) count)
+                      (cond
+                       ((eq search-type 'string)
+                        (mapconcat (lambda (str) (concat "\"" str "\""))
+                                   search-vals " "))
+                       ((and (= count 1) (eq search-type 'name-or-id))
+                        (aurel-get-param-val 'name (cdar packages)))
+                       (t (car search-vals)))))))
+    (and msg (apply 'message msg args))))
+
 
 ;;; History
 
@@ -632,18 +768,21 @@ Each element of the list has a form of `aurel-history-stack-item'.")
   "Maximum number of items saved in history.
 If 0, the history is disabled.")
 
-(defun aurel-history-add (item)
-  "Add ITEM to history."
-  (and aurel-history-stack-item
-       (push aurel-history-stack-item aurel-history-back-stack))
-  (setq aurel-history-forward-stack nil
-        aurel-history-stack-item item)
-  (when (>= (length aurel-history-back-stack)
-            aurel-history-size)
-    (setq aurel-history-back-stack
-          (cl-loop for elt in aurel-history-back-stack
-                   for i from 1 to aurel-history-size
-                   collect elt))))
+(defun aurel-history-add (item &optional replace)
+  "Add ITEM to history.
+If REPLACE is non-nil, replace the current item instead of adding."
+  (if replace
+      (setq aurel-history-stack-item item)
+    (and aurel-history-stack-item
+         (push aurel-history-stack-item aurel-history-back-stack))
+    (setq aurel-history-forward-stack nil
+          aurel-history-stack-item item)
+    (when (>= (length aurel-history-back-stack)
+              aurel-history-size)
+      (setq aurel-history-back-stack
+            (cl-loop for elt in aurel-history-back-stack
+                     for i from 1 to aurel-history-size
+                     collect elt)))))
 
 (defun aurel-history-goto (item)
   "Go to the ITEM of history.
@@ -668,6 +807,40 @@ ITEM should have the form of `aurel-history-stack-item'."
       (user-error "No next element in history"))
   (push aurel-history-stack-item aurel-history-back-stack)
   (aurel-history-goto (pop aurel-history-forward-stack)))
+
+
+;;; Reverting buffers
+
+(defcustom aurel-revert-no-confirm nil
+  "If non-nil, do not ask to confirm for reverting aurel buffer."
+  :type 'boolean
+  :group 'aurel)
+
+(defvar aurel-revert-action nil
+  "Action for refreshing information in the current aurel buffer.
+A list of the form (FUNCTION [ARGS ...]).
+The action is performed by calling (apply FUNCTION ARGS).")
+
+(defun aurel-revert-buffer (ignore-auto noconfirm)
+  "Refresh information in the current aurel buffer.
+The function is suitable for `revert-buffer-function'.
+See `revert-buffer' for the meaning of IGNORE-AUTO and NOCONFIRM."
+  (when (or aurel-revert-no-confirm
+            noconfirm
+            (y-or-n-p "Refresh current information? "))
+    (apply (car aurel-revert-action)
+           (cdr aurel-revert-action))))
+
+(defun aurel-set-revert-action (search-type search-vals)
+  "Set `aurel-revert-action' to a proper value.
+SEARCH-TYPE and SEARCH-VALS are arguments for
+`aurel-search-show-packages' by which refreshing information is
+performed."
+  (setq aurel-revert-action
+        (list (lambda (type vals)
+                (aurel-search-show-packages
+                 type vals (current-buffer) 'replace))
+              search-type search-vals)))
 
 
 ;;; Downloading
@@ -792,12 +965,6 @@ PACKAGE can be either a string (name) or a number (ID)."
 
 ;;; UI
 
-(defcustom aurel-list-single-package nil
-  "If non-nil, list a package even if it is the one matching result.
-If nil, show a single matching package in info buffer."
-  :type 'boolean
-  :group 'aurel)
-
 (defvar aurel-package-info-history nil
   "A history list for `aurel-package-info'.")
 
@@ -817,20 +984,14 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
    (list (read-string "Name or ID: "
                       nil 'aurel-package-info-history)
          current-prefix-arg))
-  (when (numberp name-or-id)
-    (setq name-or-id (number-to-string name-or-id)))
-  (let ((packages (aurel-receive-packages-info
-                   (aurel-get-package-info-url name-or-id))))
-    (if packages
-        (aurel-info-show (cdar packages)
-                         (aurel-info-get-buffer-name arg))
-      (message "Package %s not found." name-or-id))))
+  (aurel-search-show-packages
+   'name-or-id (list name-or-id) arg 'add))
 
 ;;;###autoload
-(defun aurel-package-search (str &optional arg)
-  "Search for AUR packages matching a string STR.
+(defun aurel-package-search (string &optional arg)
+  "Search for AUR packages matching STRING.
 
-STR can be a string of multiple words separated by spaces.  To
+STRING can be a string of multiple words separated by spaces.  To
 search for a string containing spaces, quote it with double
 quotes.  For example, the following search is allowed:
 
@@ -843,30 +1004,8 @@ results in a new buffer."
    (list (read-string "Search by name/description: "
                       nil 'aurel-package-search-history)
          current-prefix-arg))
-  ;; A hack for searching by multiple strings: the actual server search
-  ;; is done by the biggest string and the rest strings are searched in
-  ;; the results returned by the server
-  (let* ((strings
-          ;; sort to search by the biggest (first) string
-          (sort (split-string-and-unquote str)
-                (lambda (a b)
-                  (> (length a) (length b)))))
-         (packages
-          (let ((aurel-filter-params '(name description))
-                (aurel-filter-strings (cdr strings)))
-            (aurel-receive-packages-info
-             (aurel-get-package-search-url (car strings))))))
-    (cond
-     ((null packages)
-      (message "No packages matching '%s'." str))
-     ((and (null (cdr packages))
-           (null aurel-list-single-package))
-      (aurel-info-show (cdar packages)
-                       (aurel-info-get-buffer-name arg))
-      (message "A single package matching '%s' found." str))
-     (t
-      (aurel-list-show packages
-                       (aurel-list-get-buffer-name arg))))))
+  (aurel-search-show-packages
+   'string (split-string-and-unquote string) arg 'add))
 
 ;;;###autoload
 (defun aurel-maintainer-search (name &optional arg)
@@ -877,19 +1016,8 @@ With prefix (if ARG is non-nil), show results in a new buffer."
    (list (read-string "Search by maintainer: "
                       nil 'aurel-maintainer-search-history)
          current-prefix-arg))
-  (let ((packages (aurel-receive-packages-info
-                   (aurel-get-maintainer-search-url name))))
-    (cond
-     ((null packages)
-      (message "No packages matching maintainer '%s'." name))
-     ((and (null (cdr packages))
-           (null aurel-list-single-package))
-      (aurel-info-show (cdar packages)
-                       (aurel-info-get-buffer-name arg))
-      (message "A single package by maintainer '%s' found." name))
-     (t
-      (aurel-list-show packages
-                       (aurel-list-get-buffer-name arg))))))
+  (aurel-search-show-packages
+   'maintainer (list name) arg 'add))
 
 
 ;;; Package list
@@ -973,6 +1101,7 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (define-key map "M" 'aurel-list-mark-all)
     (define-key map "U" 'aurel-list-unmark-all)
     (define-key map "\177" 'aurel-list-unmark-backward)
+    (define-key map "g" 'revert-buffer)
     map)
   "Keymap for `aurel-list-mode'.")
 
@@ -990,6 +1119,8 @@ If UNIQUE is non-nil, make the name unique."
 \\{aurel-list-mode-map}"
   (make-local-variable 'aurel-list)
   (make-local-variable 'aurel-list-marks)
+  (make-local-variable 'aurel-revert-action)
+  (setq-local revert-buffer-function 'aurel-revert-buffer)
   (setq-local aurel-history-size aurel-list-history-size)
   (setq default-directory aurel-download-directory)
   (setq tabulated-list-format
@@ -1013,8 +1144,7 @@ If BUFFER is nil, use (create if needed) buffer with the name
   (let ((buf (get-buffer-create
               (or buffer aurel-list-buffer-name))))
     (with-current-buffer buf
-      (aurel-list-show-1 list)
-      (aurel-history-add (list 'aurel-list-show-1 list)))
+      (aurel-list-show-1 list))
     (pop-to-buffer-same-window buf)))
 
 (defun aurel-list-show-1 (list)
@@ -1053,11 +1183,15 @@ Use parameters from `aurel-list-column-format'."
                      aurel-list-column-format)))))
    list))
 
+(defun aurel-list-get-current-id ()
+  "Return ID of the current package."
+  (or (tabulated-list-get-id)
+      (user-error "No package here")))
+
 (defun aurel-list-get-package-info (&optional id)
   "Return info for a package with ID or for the current package."
   (or id
-      (setq id (tabulated-list-get-id))
-      (user-error "No package here"))
+      (setq id (aurel-list-get-current-id)))
   (or (cdr (assoc id aurel-list))
       (error "No package with ID %s in aurel-list" id)))
 
@@ -1065,8 +1199,10 @@ Use parameters from `aurel-list-column-format'."
   "Describe the current package.
 With prefix (if ARG is non-nil), show results in a new info buffer."
   (interactive "P")
-  (aurel-info-show (aurel-list-get-package-info)
-                   (aurel-info-get-buffer-name arg)))
+  (let* ((id (aurel-list-get-current-id))
+         (info (aurel-list-get-package-info id))
+         (list (list (cons id info))))
+    (aurel-show-packages list arg 'add 'name-or-id (list id))))
 
 (defun aurel-list-download-package ()
   "Download marked packages or the current package if nothing is marked.
@@ -1321,6 +1457,7 @@ Cdr - is a value (number or string) of that parameter.")
     (define-key map [backtab] 'backward-button)
     (define-key map "l" 'aurel-history-back)
     (define-key map "r" 'aurel-history-forward)
+    (define-key map "g" 'revert-buffer)
     map)
   "Keymap for `aurel-info-mode'.")
 
@@ -1336,6 +1473,8 @@ If UNIQUE is non-nil, make the name unique."
 
 \\{aurel-info-mode-map}"
   (make-local-variable 'aurel-info)
+  (make-local-variable 'aurel-revert-action)
+  (setq-local revert-buffer-function 'aurel-revert-buffer)
   (setq-local aurel-history-size aurel-info-history-size)
   (setq buffer-read-only t)
   (setq default-directory aurel-download-directory))
@@ -1348,8 +1487,7 @@ If BUFFER is nil, use (create if needed) buffer with the name
   (let ((buf (get-buffer-create
               (or buffer aurel-info-buffer-name))))
     (with-current-buffer buf
-      (aurel-info-show-1 info)
-      (aurel-history-add (list 'aurel-info-show-1 info)))
+      (aurel-info-show-1 info))
     (pop-to-buffer-same-window buf)))
 
 (defun aurel-info-show-1 (info)
