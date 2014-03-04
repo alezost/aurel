@@ -99,7 +99,7 @@ If VAL is nil, return `aurel-empty-string'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
   (if (or (null val)
-          (equal val aurel-empty-string))
+          (equal val "None"))
       aurel-empty-string
     (or (stringp val)
         (setq val (prin1-to-string val)))
@@ -404,7 +404,7 @@ For more information, see `aurel-aur-filters' and
 `aurel-receive-packages-info'.")
 
 (defvar aurel-final-filters
-  '(aurel-filter-empty)
+  '()
   "List of filter functions applied to a package info.
 For more information, see `aurel-receive-packages-info'.")
 
@@ -475,16 +475,6 @@ Pass the check (return INFO), if `aurel-filter-strings' or
                           (string-match-p (regexp-quote substr) str))
                         aurel-filter-strings)))
     info))
-
-(defun aurel-filter-empty (info)
-  "Replace nil in parameter values with `aurel-empty-string' in a package INFO.
-INFO is alist of parameter names (strings) and values.
-Return modified info."
-  (dolist (param info info)
-    (let ((val (cdr param)))
-      (when (or (null val)
-                (equal val "None"))
-        (setcdr param aurel-empty-string)))))
 
 (defun aurel-filter-date (info fun &rest params)
   "Format date parameters PARAMS of a package INFO.
@@ -1599,8 +1589,7 @@ Each element from PARAMS is a parameter to insert (symbol from
 PARAM is a symbol from `aurel-param-description-alist'.
 Use `aurel-info-format' to format descriptions of parameters."
   (unless (and aurel-info-ignore-empty-vals
-               (or (null val)
-                   (equal val aurel-empty-string)))
+               (equal (aurel-get-string val) aurel-empty-string))
     (let ((desc (aurel-get-param-description param))
           (insert-val (cdr (assoc param
                                   aurel-info-insert-params-alist))))
