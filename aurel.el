@@ -1565,9 +1565,9 @@ Use `aurel-info-format' to format descriptions of parameters."
 
 (defun aurel-info-insert-outdated (val)
   "Insert string VAL at point.
-If VAL is \"yes\", use `aurel-info-outdated' face.
-If VAL is \"no\", use `aurel-info-not-outdated' face."
-  (let ((face (if (string= "yes" (downcase val))
+If VAL is `aurel-outdated-string', use `aurel-info-outdated' face;
+if `aurel-not-outdated-string', use `aurel-info-not-outdated' face."
+  (let ((face (if (string= aurel-outdated-string val)
                   'aurel-info-outdated
                 'aurel-info-not-outdated)))
     (insert (propertize val 'face face))))
