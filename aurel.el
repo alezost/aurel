@@ -1378,6 +1378,11 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   "Face used for size of installed package."
   :group 'aurel-info)
 
+(defface aurel-info-architecture
+  '((t))
+  "Face used for 'Architecture' parameter."
+  :group 'aurel-info)
+
 (defface aurel-info-provides
   '((t :inherit font-lock-function-name-face))
   "Face used for 'Provides' parameter."
@@ -1485,6 +1490,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (pkg-url           . aurel-info-insert-url)
     (home-url          . aurel-info-insert-url)
     (aur-url           . aurel-info-insert-url)
+    (architecture      . aurel-info-architecture)
     (provides          . aurel-info-provides)
     (replaces          . aurel-info-replaces)
     (conflicts         . aurel-info-conflicts)
