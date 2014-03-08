@@ -76,13 +76,13 @@
   :type 'string
   :group 'aurel)
 
-(defcustom aurel-outdated-string "Yes"
-  "String used for outdated parameter if a package is out of date."
+(defcustom aurel-true-string "Yes"
+  "String used if a parameter value is t."
   :type 'string
   :group 'aurel)
 
-(defcustom aurel-not-outdated-string "No"
-  "String used for outdated parameter if a package is not out of date."
+(defcustom aurel-false-string "No"
+  "String used if a parameter value is nil."
   :type 'string
   :group 'aurel)
 
@@ -98,16 +98,21 @@ If nil, show a single matching package in info buffer."
   :type 'boolean
   :group 'aurel)
 
-(defun aurel-get-string (val &optional face)
+(defun aurel-get-string (val &optional face nil-val)
   "Return string from VAL.
-If VAL is nil, return `aurel-empty-string'.
+If VAL is \"None\", return `aurel-empty-string'.
+If VAL is nil, return NIL-VAL or `aurel-false-string'.
+If VAL is t, return `aurel-true-string'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
-  (if (or (null val)
-          (equal val "None"))
+  (if (equal val "None")
       aurel-empty-string
-    (or (stringp val)
-        (setq val (prin1-to-string val)))
+    (setq val
+          (cond
+           ((null val) (or nil-val aurel-false-string))
+           ((eq t val) aurel-true-string)
+           ((null (stringp val)) (prin1-to-string val))
+           (t val)))
     (if face
         (propertize val 'face face)
       val)))
@@ -358,6 +363,31 @@ PARAM-NAME is a string from `aurel-pacman-param-alist'."
   "Return a value of a parameter PARAM from a package INFO."
   (cdr (assoc param info)))
 
+(defvar aurel-param-nil-alist
+  '((maintainer . aurel-empty-string))
+  "Alist of the form ((PARAM . VAL) ...).
+PARAM is a parameter name.  VAL is a string or a variable used to
+replace parameter value (if it is nil) in a printable string
+instead of `aurel-false-string'.")
+
+(defun aurel-get-param-val-string (param info &optional face)
+  "Return printable value of a parameter PARAM from a package INFO.
+If there is no PARAM in INFO or its value is \"None\", return
+`aurel-empty-string'.  If the value of PARAM is nil, return value
+from `aurel-param-nil-alist' or `aurel-false-string'. If it is t,
+return `aurel-true-string'.  Otherwise, if VAL is not string, use
+`prin1-to-string'.
+If FACE is non-nil, propertize returned string with this FACE."
+  (let* ((assoc (assoc param info))
+         (val (cdr assoc)))
+    (if (null assoc)
+        aurel-empty-string
+      (let ((nil-val (cdr (assoc param aurel-param-nil-alist))))
+        (aurel-get-string
+         val face
+         (and nil-val
+              (if (boundp nil-val) (symbol-value nil-val) nil-val)))))))
+
 
 ;;; Filters for processing package info
 
@@ -511,14 +541,11 @@ Return modified info."
 
 (defun aurel-filter-outdated (info)
   "Change `outdated' parameter of a package INFO.
-Replace 1/0 with `aurel-outdated-string'/`aurel-not-outdated-string'.
+Replace 1/0 with t/nil.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (let ((param (assoc 'outdated info)))
-    (setcdr param
-            (if (= 0 (cdr param))
-                aurel-not-outdated-string
-              aurel-outdated-string)))
+    (setcdr param (null (= 0 (cdr param)))))
   info)
 
 (defun aurel-filter-category (info)
@@ -1182,14 +1209,12 @@ Use parameters from `aurel-list-column-format'."
              (apply #'vector
                     (mapcar
                      (lambda (col-spec)
-                       (let* ((param (car col-spec))
-                              (val (aurel-get-param-val param info)))
-                         (aurel-get-string
-                          val
+                       (let ((param (car col-spec)))
+                         (aurel-get-param-val-string
+                          param info
                           ;; colorize outdated names
                           (and (eq param 'name)
-                               (equal (aurel-get-param-val 'outdated info)
-                                      aurel-outdated-string)
+                               (aurel-get-param-val 'outdated info)
                                'aurel-info-outdated))))
                      aurel-list-column-format)))))
    list))
@@ -1631,14 +1656,18 @@ Use `aurel-info-format' to format descriptions of parameters."
    'follow-link t
    'help-echo "mouse-2, RET: Browse URL"))
 
+(defun aurel-info-insert-boolean (val &optional t-face nil-face)
+  "Insert boolean value VAL at point.
+If VAL is t, use T-FACE; if VAL is nil, use NIL-FACE.
+If VAL is not boolean, insert it as is."
+  (let ((face (and (booleanp val)
+                   (if val t-face nil-face))))
+    (insert (aurel-get-string val face))))
+
 (defun aurel-info-insert-outdated (val)
-  "Insert string VAL at point.
-If VAL is `aurel-outdated-string', use `aurel-info-outdated' face;
-if `aurel-not-outdated-string', use `aurel-info-not-outdated' face."
-  (let ((face (if (string= aurel-outdated-string val)
-                  'aurel-info-outdated
-                'aurel-info-not-outdated)))
-    (insert (propertize val 'face face))))
+  "Insert value VAL of the `outdated' parameter at point."
+  (aurel-info-insert-boolean
+   val 'aurel-info-outdated 'aurel-info-not-outdated))
 
 (defun aurel-info-get-filled-string (str col)
   "Return string by filling a string STR.
