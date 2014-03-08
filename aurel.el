@@ -1607,8 +1607,8 @@ Use `aurel-info-format' to format descriptions of parameters."
 
 (defun aurel-info-insert-maintainer (name)
   "Make button from maintainer NAME and insert it at point."
-  (if (string= name aurel-empty-string)
-      (insert name)
+  (if (null name)
+      (insert aurel-empty-string)
     (insert-button
      name
      'face 'aurel-info-maintainer
