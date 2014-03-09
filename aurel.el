@@ -118,6 +118,32 @@ If FACE is non-nil, propertize returned string with this FACE."
       val)))
 
 
+;;; Debugging
+
+(defvar aurel-debug-level 0
+  "If > 0, display debug messages in `aurel-debug-buffer'.
+The greater the number, the more messages is printed.
+Max level is 9.")
+
+(defvar aurel-debug-buffer "*aurel debug*"
+  "Name of a buffer containing debug messages.")
+
+(defvar aurel-debug-time-format "%T.%3N"
+  "Time format used for debug mesages.")
+
+(defun aurel-debug (level msg &rest args)
+  "Print debug message if needed.
+If `aurel-debug-level' >= LEVEL, print debug message MSG with
+arguments ARGS into `aurel-debug-buffer'.
+Return nil."
+  (when (>= aurel-debug-level level)
+    (with-current-buffer (get-buffer-create aurel-debug-buffer)
+      (goto-char (point-max))
+      (insert (format-time-string aurel-debug-time-format (current-time)))
+      (insert " " (apply 'format msg args) "\n")))
+  nil)
+
+
 ;;; Interacting with AUR server
 
 (defvar aurel-base-url "https://aur.archlinux.org/"
