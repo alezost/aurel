@@ -98,14 +98,20 @@ If nil, show a single matching package in info buffer."
   :type 'boolean
   :group 'aurel)
 
+(defvar aurel-unknown-string "Unknown"
+  "String used if a value of the parameter is unknown.")
+
+(defvar aurel-none-string "None"
+  "String saying that a parameter has no value.")
+
 (defun aurel-get-string (val &optional face nil-val)
   "Return string from VAL.
-If VAL is \"None\", return `aurel-empty-string'.
+If VAL is `aurel-none-string' return `aurel-empty-string'.
 If VAL is nil, return NIL-VAL or `aurel-false-string'.
 If VAL is t, return `aurel-true-string'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
-  (if (equal val "None")
+  (if (equal val aurel-none-string)
       aurel-empty-string
     (setq val
           (cond
@@ -1645,15 +1651,15 @@ Each element from PARAMS is a parameter to insert (symbol from
 PARAM is a symbol from `aurel-param-description-alist'.
 Use `aurel-info-format' to format descriptions of parameters."
   (unless (and aurel-info-ignore-empty-vals
-               (equal (aurel-get-string val) aurel-empty-string))
+               (equal val aurel-none-string))
     (let ((desc (aurel-get-param-description param))
           (insert-val (cdr (assoc param
                                   aurel-info-insert-params-alist))))
       (insert (format aurel-info-format desc))
       (if (functionp insert-val)
           (funcall insert-val val)
-          (aurel-info-insert-val
-           val (and (facep insert-val) insert-val)))
+        (aurel-info-insert-val
+         val (and (facep insert-val) insert-val)))
       (insert "\n"))))
 
 (defun aurel-info-insert-maintainer (name)
