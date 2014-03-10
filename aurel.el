@@ -1619,6 +1619,8 @@ If BUFFER is nil, use (create if needed) buffer with the name
 (defun aurel-info-show-1 (info)
   "Display package information INFO in current buffer.
 INFO should have the form of `aurel-info'."
+  (aurel-info-mode)
+  (setq aurel-info info)
   (let ((inhibit-read-only t))
     (erase-buffer)
     (apply 'aurel-info-print
@@ -1627,9 +1629,7 @@ INFO should have the form of `aurel-info'."
       (insert aurel-info-installed-package-string)
       (apply 'aurel-info-print
              info aurel-info-installed-parameters)))
-  (goto-char (point-min))
-  (aurel-info-mode)
-  (setq aurel-info info))
+  (goto-char (point-min)))
 
 (defun aurel-info-print (info &rest params)
   "Insert (pretty print) package INFO into current buffer.
