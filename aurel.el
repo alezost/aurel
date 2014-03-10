@@ -98,6 +98,13 @@ If nil, show a single matching package in info buffer."
   :type 'boolean
   :group 'aurel)
 
+(defcustom aurel-aur-user-package-info-check nil
+  "If non-nil, check additional info before displaying a package info.
+Additional info is an AUR user specific information (whether the user
+voted for the package or subscribed to receive comments)."
+  :type 'boolean
+  :group 'aurel)
+
 (defvar aurel-unknown-string "Unknown"
   "String used if a value of the parameter is unknown.")
 
@@ -608,7 +615,9 @@ Cdr - is a parameter name (string) returned by pacman.")
     (installed-size    . "Size")
     (packager          . "Packager")
     (build-date        . "Build Date")
-    (install-date      . "Install Date"))
+    (install-date      . "Install Date")
+    (voted             . "Voted")
+    (subscribed        . "Subscribed"))
   "Association list of symbols and descriptions of parameters.
 Descriptions are used for displaying package information.
 Symbols are either from `aurel-aur-param-alist', from
@@ -995,10 +1004,17 @@ details."
       (if (and (= count 1)
                (or (eq search-type 'name-or-id)
                    (null aurel-list-single-package)))
-          (aurel-info-show (cdar packages)
-                           (if (bufferp buffer)
-                               buffer
-                             (aurel-info-get-buffer-name buffer)))
+          (let ((info (cdar packages)))
+            ;; Add (maybe) AUR user info if the buffer is reverted or a
+            ;; new info is shown; if we are moving by a history
+            ;; (`history' is nil), do not add it.
+            (and history
+                 aurel-aur-user-package-info-check
+                 (aurel-add-aur-user-package-info info))
+            (aurel-info-show info
+                             (if (bufferp buffer)
+                                 buffer
+                               (aurel-info-get-buffer-name buffer))))
         (aurel-list-show packages
                          (if (bufferp buffer)
                              buffer
@@ -1673,6 +1689,33 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   "Face used if a package is not out of date."
   :group 'aurel-info)
 
+(defface aurel-info-voted
+  '((default :weight bold)
+    (((class color) (min-colors 88) (background light))
+     :foreground "ForestGreen")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "PaleGreen")
+    (((class color) (min-colors 8))
+     :foreground "green")
+    (t :underline t))
+  "Face used if a package is voted."
+  :group 'aurel-info)
+
+(defface aurel-info-not-voted
+  '((t))
+  "Face used if a package is not voted."
+  :group 'aurel-info)
+
+(defface aurel-info-subscribed
+  '((t :inherit aurel-info-voted))
+  "Face used if a package is subscribed."
+  :group 'aurel-info)
+
+(defface aurel-info-not-subscribed
+  '((t :inherit aurel-info-not-voted))
+  "Face used if a package is not subscribed."
+  :group 'aurel-info)
+
 (defface aurel-info-date
   '((t :inherit font-lock-constant-face))
   "Face used for dates."
@@ -1772,6 +1815,12 @@ It is inserted after printing info from AUR and before info from pacman."
   :type 'string
   :group 'aurel-info)
 
+(defcustom aurel-info-aur-user-string
+  "\n"
+  "String inserted before printing info specific for AUR user."
+  :type 'string
+  :group 'aurel-info)
+
 (defcustom aurel-info-show-maintainer-account t
   "If non-nil, display a link to maintainer's AUR account."
   :type 'boolean
@@ -1792,6 +1841,8 @@ It is inserted after printing info from AUR and before info from pacman."
     (build-date        . aurel-info-date)
     (description       . aurel-info-description)
     (outdated          . aurel-info-insert-outdated)
+    (voted             . aurel-info-insert-voted)
+    (subscribed        . aurel-info-insert-subscribed)
     (pkg-url           . aurel-info-insert-url)
     (home-url          . aurel-info-insert-url)
     (aur-url           . aurel-info-insert-aur-url)
@@ -1823,6 +1874,13 @@ If nil, display all parameters with no particular order.")
     depends-opt required optional-for conflicts replaces packager
     build-date install-date script validated)
   "List of parameters of an installed package displayed in info buffer.
+Each parameter should be a symbol from `aurel-param-description-alist'.
+The order of displayed parameters is the same as in this list.
+If nil, display all parameters with no particular order.")
+
+(defvar aurel-info-aur-user-parameters
+  '(voted subscribed)
+  "List of parameters specific for AUR user displayed in info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
 The order of displayed parameters is the same as in this list.
 If nil, display all parameters with no particular order.")
@@ -1884,6 +1942,10 @@ INFO should have the form of `aurel-info'."
     (erase-buffer)
     (apply 'aurel-info-print
            info aurel-info-parameters)
+    (when (assoc 'voted info)
+      (insert aurel-info-aur-user-string)
+      (apply 'aurel-info-print
+             info aurel-info-aur-user-parameters))
     (when (aurel-get-param-val 'installed-name info)
       (insert aurel-info-installed-package-string)
       (apply 'aurel-info-print
@@ -1958,6 +2020,16 @@ If VAL is not boolean, insert it as is."
   "Insert value VAL of the `outdated' parameter at point."
   (aurel-info-insert-boolean
    val 'aurel-info-outdated 'aurel-info-not-outdated))
+
+(defun aurel-info-insert-voted (val)
+  "Insert value VAL of the `voted' parameter at point."
+  (aurel-info-insert-boolean
+   val 'aurel-info-voted 'aurel-info-not-voted))
+
+(defun aurel-info-insert-subscribed (val)
+  "Insert value VAL of the `subscribed' parameter at point."
+  (aurel-info-insert-boolean
+   val 'aurel-info-subscribed 'aurel-info-not-subscribed))
 
 (defun aurel-info-get-filled-string (str col)
   "Return string by filling a string STR.
