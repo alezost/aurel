@@ -1,10 +1,10 @@
 ## About
 
-This is an Emacs package for searching, getting information and
-downloading AUR ([Arch User Repository](https://aur.archlinux.org/))
-packages.  Its functionality is very similar to the one provided by
-[cower](http://github.com/falconindy/cower), but instead of command-line
-interface you use Emacs interface.
+This is an Emacs package for searching, getting information, voting,
+subscribing for comments and downloading AUR
+([Arch User Repository][aur]) packages.  Its functionality is very
+similar to the one provided by [cower][cower] and [aurvote][aurvote],
+but instead of command-line interface you use Emacs interface.
 
 The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
@@ -105,6 +105,32 @@ history with <kbd>l</kbd>/<kbd>r</kbd> and refresh information with
 of stored elements (or to disable the history), use
 `aurel-info-history-size` and `aurel-list-history-size` variables.
 
+### AUR account actions
+
+If you have an [AUR][aur] account, you can use `aurel` to vote for
+packages, to subscribe for new comments and to show additional
+information (whether a package is voted/subscribed by you or not).
+
+The following keys are available in a buffer with package info by
+default:
+
+- <kbd>v</kbd> to vote (<kbd>C-u v</kbd> to unvote)
+- <kbd>s</kbd> to subscribe (<kbd>C-u s</kbd> to unsubscribe)
+
+To enable receiving additional AUR user specific information (`Voted`
+and `Subscribed` lines should appear in the info buffer), use the
+following:
+
+```lisp
+(setq aurel-aur-user-package-info-check t)
+```
+
+The first time `aurel` needs the above information, you will be prompted
+for your AUR account (you may set `aurel-aur-user-name` variable for
+convenience) and a password.  The password is not saved anywhere, but a
+login cookie is saved (emacs saves cookies in `~/.emacs.d/url/cookies`
+by default), so you will not be prompted for credentials next time.
+
 ## Configuration
 
 User options can be explored with ``M-x customize-group RET aurel``.
@@ -163,19 +189,40 @@ shown in the above example:
 
 ### Package info
 
+Anything you see in a buffer with a package info is configurable.
 Various aspects of displaying information about a package can be
 configured with `aurel-info-parameters`,
-`aurel-info-installed-parameters`, `aurel-info-insert-params-alist`,
-`aurel-info-format`, `aurel-info-fill-column`,
-`aurel-info-installed-package-string`, `aurel-info-ignore-empty-vals`,
+`aurel-info-installed-parameters`, `aurel-info-aur-user-parameters`,
+`aurel-info-insert-params-alist`, `aurel-info-format`,
+`aurel-info-fill-column`, `aurel-info-installed-package-string`,
+`aurel-info-aur-user-string`, `aurel-info-ignore-empty-vals`,
 `aurel-info-show-maintainer-account` variables and with `aurel-info-...`
 faces.  For example:
 
 ```lisp
 (setq aurel-info-format "%-16s"
       aurel-info-ignore-empty-vals t
-      aurel-info-installed-package-string "\n————————————————————————————————\n\n"
+      aurel-info-installed-package-string "\n  ————————————————————————————————\n\n"
+      aurel-info-aur-user-string aurel-info-installed-package-string
       aurel-empty-string "")
+```
+
+A more complex example: suppose you want to display a red star (*) after
+the number of votes if a package is voted by you (see the second
+screenshot).  For that we define a function that will insert needed
+information and replace the default value in
+`aurel-info-insert-params-alist` by this function:
+
+```lisp
+(defun aurel-info-insert-cool-votes (val)
+  (insert (propertize (if (numberp val) (number-to-string val) val)
+                      'face 'aurel-info-votes))
+  (when (aurel-get-param-val 'voted aurel-info)
+    (insert (propertize "*" 'face '(:foreground "red" :weight bold)))))
+
+(eval-after-load 'aurel
+  '(setcdr (assoc 'votes aurel-info-insert-params-alist)
+           'aurel-info-insert-cool-votes))
 ```
 
 ### Downloading a package
@@ -199,11 +246,14 @@ Aurel with default settings:
 
 ![Default](http://i.imgur.com/okR2x9q.png)
 
-Aurel with all modifications, described in the
-[Configuration section](#configuration):
+Aurel with all modifications, described above:
 
-![Changed](http://i.imgur.com/1JxaebN.png)
+![Changed](http://i.imgur.com/6p2sWn2.png)
 
 In both screenshots `alect-dark` theme from
 [alect-themes](https://github.com/alezost/alect-themes) is used.
 
+
+[aur]: https://aur.archlinux.org/
+[cower]: http://github.com/falconindy/cower
+[aurvote]: https://aur.archlinux.org/packages/aurvote
