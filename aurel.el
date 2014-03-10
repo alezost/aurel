@@ -61,7 +61,7 @@
 
 ;;; Code:
 
-(require 'url-expand)
+(require 'url)
 (require 'url-handlers)
 (require 'json)
 (require 'tabulated-list)
@@ -152,19 +152,44 @@ Return nil."
 
 ;;; Interacting with AUR server
 
-(defvar aurel-base-url "https://aur.archlinux.org/"
+(defcustom aurel-aur-user-name ""
+  "User name for AUR."
+  :type 'string
+  :group 'aurel)
+
+(defvar aurel-aur-host "aur.archlinux.org"
+  "AUR domain.")
+
+(defvar aurel-aur-base-url (concat "https://" aurel-aur-host)
   "Root URL of the AUR service.")
+
+(defvar aurel-aur-login-url
+  (url-expand-file-name "login" aurel-aur-base-url)
+  "Login URL.")
+
+(defconst aurel-aur-cookie-name "AURSID"
+  "Cookie name used for AUR login.")
 
 ;; Avoid compilation warning about `url-http-response-status'
 (defvar url-http-response-status)
 
+(defun aurel-check-response-status (buffer &optional noerror)
+  "Return t, if URL response status in BUFFER is 2XX or 3XX.
+Otherwise, throw an error or return nil, if NOERROR is nil."
+  (with-current-buffer buffer
+    (aurel-debug 3 "Response status: %s" url-http-response-status)
+    (if (or (null (numberp url-http-response-status))
+            (> url-http-response-status 399))
+        (unless noerror (error "Error during request: %s"
+                               url-http-response-status))
+      t)))
+
 (defun aurel-receive-parse-info (url)
   "Return received output from URL processed with `json-read'."
+  (aurel-debug 3 "Retrieving %s" url)
   (let ((buf (url-retrieve-synchronously url)))
+    (aurel-check-response-status buf)
     (with-current-buffer buf
-      (if (or (null (numberp url-http-response-status))
-              (> url-http-response-status 299))
-          (error "Error during request: %s" url-http-response-status))
       (goto-char (point-min))
       (re-search-forward "^{") ;; is there a better way?
       (beginning-of-line)
@@ -192,6 +217,236 @@ Returning value is alist of AUR package parameters (strings from
       (when (string= type "info")
         (setq results (list results)))
       results))))
+
+;; Because of the bug #16960, we can't use `url-retrieve-synchronously'
+;; (or any other simple call of `url-retrieve', as the callback is never
+;; called) to login to <https://aur.archlinux.org>.  So we use
+;; `aurel-url-retrieve-synchronously' - it is almost the same, except it
+;; can exit from the waiting loop when a buffer with received data
+;; appears in `url-dead-buffer-list'.  This hack is currently possible,
+;; because `url-http-parse-headers' marks the buffer as dead when it
+;; returns nil.
+
+(defun aurel-url-retrieve-synchronously (url &optional silent inhibit-cookies)
+  "Retrieve URL synchronously.
+Return the buffer containing the data, or nil if there are no data
+associated with it (the case for dired, info, or mailto URLs that need
+no further processing).  URL is either a string or a parsed URL.
+See `url-retrieve' for SILENT and INHIBIT-COOKIES."
+  (url-do-setup)
+  (let (asynch-buffer retrieval-done)
+    (setq asynch-buffer
+          (url-retrieve url
+                        (lambda (&rest ignored)
+                          (url-debug 'retrieval
+                                     "Synchronous fetching done (%S)"
+                                     (current-buffer))
+                          (setq retrieval-done t
+                                asynch-buffer (current-buffer)))
+                        nil silent inhibit-cookies))
+    (when asynch-buffer
+      (let ((proc (get-buffer-process asynch-buffer)))
+        (while (not (or retrieval-done
+                        ;; retrieval can be done even if
+                        ;; `retrieval-done' is nil (see the comment
+                        ;; above)
+                        (memq asynch-buffer url-dead-buffer-list)))
+          (url-debug 'retrieval
+                     "Spinning in url-retrieve-synchronously: %S (%S)"
+                     retrieval-done asynch-buffer)
+          (if (buffer-local-value 'url-redirect-buffer asynch-buffer)
+              (setq proc (get-buffer-process
+                          (setq asynch-buffer
+                                (buffer-local-value 'url-redirect-buffer
+                                                    asynch-buffer))))
+            (if (and proc (memq (process-status proc)
+                                '(closed exit signal failed))
+                     ;; Make sure another process hasn't been started.
+                     (eq proc (or (get-buffer-process asynch-buffer) proc)))
+                (progn ;; Call delete-process so we run any sentinel now.
+                  (delete-process proc)
+                  (setq retrieval-done t)))
+            (unless (or (with-local-quit
+                          (accept-process-output proc))
+                        (null proc))
+              (when quit-flag
+                (delete-process proc))
+              (setq proc (and (not quit-flag)
+                              (get-buffer-process asynch-buffer)))))))
+      asynch-buffer)))
+
+(defun aurel-url-post (url args &optional inhibit-cookies)
+  "Send ARGS to URL as a POST request.
+ARGS is alist of field names and values to send.
+Return the buffer with the received data.
+If INHIBIT-COOKIES is non-nil, do not use saved cookies."
+  (let ((url-request-method "POST")
+        (url-request-extra-headers
+         '(("Content-Type" . "application/x-www-form-urlencoded")))
+        (url-request-data
+         (mapconcat (lambda (arg)
+                      (concat (url-hexify-string (car arg))
+                              "="
+                              (url-hexify-string (cdr arg))))
+                    args
+                    "&")))
+    (aurel-debug 2 "POSTing to %s" url)
+    (aurel-url-retrieve-synchronously url inhibit-cookies)))
+
+(defun aurel-get-aur-cookie ()
+  "Return cookie for AUR login.
+Return nil, if there is no such cookie or it is expired."
+  (url-do-setup) ; initialize cookies
+  (let* ((cookies (url-cookie-retrieve aurel-aur-host "/" t))
+         (cookie (car (cl-member-if
+                       (lambda (cookie)
+                         (equal (url-cookie-name cookie)
+                                aurel-aur-cookie-name))
+                       cookies))))
+    (if (null cookie)
+        (aurel-debug 4 "AUR login cookie not found")
+      (if (url-cookie-expired-p cookie)
+          (aurel-debug 4 "AUR login cookie is expired")
+        (aurel-debug 4 "AUR login cookie is valid")
+        cookie))))
+
+(defun aurel-aur-login-maybe (&optional force noerror)
+  "Login to AUR, use cookie if possible.
+If FORCE is non-nil (interactively, with prefix), prompt for
+credentials and login without trying the cookie.
+See `aurel-aur-login' for the meaning of NOERROR and returning value."
+  (interactive "P")
+  (if (aurel-get-aur-cookie)
+      (progn
+        (aurel-debug 2 "Using cookie instead of a real login")
+        t)
+    ;; TODO add support for authinfo
+    (let (user password)
+      (when (or force (null user))
+        (setq user (read-string "AUR user name: " aurel-aur-user-name)))
+      (when (or force (null password))
+        (setq password (read-passwd "Password: ")))
+      (aurel-aur-login user password t noerror))))
+
+(defun aurel-aur-login (user password &optional remember noerror)
+  "Login to AUR with USER and PASSWORD.
+If REMEMBER is non-nil, remember a cookie.
+Return t, if login was successful, otherwise throw an error or
+return nil, if NOERROR is non-nil."
+  (let ((buf (aurel-url-post
+              aurel-aur-login-url
+              (list (cons "user" user)
+                    (cons "passwd" password)
+                    (cons "remember_me" (if remember "on" "off")))
+              'inhibit-cookie)))
+    (when (aurel-check-response-status buf noerror)
+      (with-current-buffer buf
+        (if (re-search-forward "errorlist.+<li>\\(.+\\)</li>" nil t)
+            (let ((err (match-string 1)))
+              (aurel-debug 1 "Error during login: %s" )
+              (or noerror (error "%s" err))
+              nil)
+          (url-cookie-write-file)
+          (aurel-debug 1 "Login for %s is successful" user)
+          t)))))
+
+(defun aurel-add-aur-user-package-info (info)
+  "Append additional info to a package INFO.
+INFO should have a form of `aurel-info'.
+See `aurel-aur-user-package-info-check' for the meaning of
+additional info."
+  (let ((add (aurel-get-aur-user-package-info
+              (aurel-get-aur-package-url
+               (aurel-get-param-val 'name info)))))
+    (when add
+      (setcdr (last info) add))))
+
+(defun aurel-get-aur-user-package-info (url)
+  "Return AUR user specific information about a package from URL.
+Returning value is alist of package parameters specific for AUR
+user (`voted' and `subscribed') and their values.
+Return nil, if information is not found."
+  (when (aurel-aur-login-maybe nil t)
+    (aurel-debug 3 "Retrieving %s" url)
+    (let ((buf (url-retrieve-synchronously url)))
+      (aurel-debug 4 "Searching in %S for voted/subscribed params" buf)
+      (list (cons 'voted
+                  (aurel-aur-package-voted buf))
+            (cons 'subscribed
+                  (aurel-aur-package-subscribed buf))))))
+
+(defun aurel-aur-package-voted (buffer)
+  "Return `voted' parameter value from BUFFER with fetched data.
+Return non-nil if a package is voted by the user; nil if it is not;
+`aurel-unknown-string' if the information is not found.
+BUFFER should contain html data about the package."
+  (cond
+   ((aurel-search-in-buffer
+     (aurel-get-aur-user-action-name 'vote) buffer)
+    nil)
+   ((aurel-search-in-buffer
+     (aurel-get-aur-user-action-name 'unvote) buffer)
+    t)
+   (t aurel-unknown-string)))
+
+(defun aurel-aur-package-subscribed (buffer)
+  "Return `subscribed' parameter value from BUFFER with fetched data.
+Return non-nil if a package is subscribed by the user; nil if it is not;
+`aurel-unknown-string' if the information is not found.
+BUFFER should contain html data about the package."
+  (cond
+   ((aurel-search-in-buffer
+     (aurel-get-aur-user-action-name 'subscribe) buffer)
+    nil)
+   ((aurel-search-in-buffer
+     (aurel-get-aur-user-action-name 'unsubscribe) buffer)
+    t)
+   (t aurel-unknown-string)))
+
+(defun aurel-search-in-buffer (regexp buffer)
+  "Return non-nil if BUFFER contains REGEXP; return nil otherwise."
+  (with-current-buffer buffer
+    (goto-char (point-min))
+    (let ((res (re-search-forward regexp nil t)))
+      (aurel-debug 7 "Searching for %s in %S: %S" regexp buffer res)
+      res)))
+
+(defvar aurel-aur-user-actions
+  '((vote        "do_Vote"     "vote"     "Vote for the current package?")
+    (unvote      "do_UnVote"   "unvote"   "Do you really want to unvote?")
+    (subscribe   "do_Notify"   "notify"   "Subscribe to the new comments?")
+    (unsubscribe "do_UnNotify" "unnotify" "Unsubscribe from notifying about the new comments?"))
+  "Alist of the available actions.
+Each association has the following form:
+
+  (SYMBOL NAME URL-END CONFIRM)
+
+SYMBOL is a name of the action used internally in code of this package.
+NAME is a name (string) used in the html-code of AUR package page.
+URL-END is appended to the package URL; used for posting the action.
+CONFIRM is a prompt to confirm the action or nil if it is not required.")
+
+(defun aurel-get-aur-user-action-name (action)
+  "Return the name of an ACTION."
+  (cadr (assoc action aurel-aur-user-actions)))
+
+(defun aurel-aur-user-action (action package)
+  "Perform AUR user ACTION on the PACKAGE.
+ACTION is a symbol from `aurel-aur-user-actions'.
+PACKAGE is a name of the package (string).
+Return non-nil, if ACTION was performed; return nil otherwise."
+  (let ((assoc (assoc action aurel-aur-user-actions)))
+    (let ((action-name (nth 1 assoc))
+          (url-end     (nth 2 assoc))
+          (confirm     (nth 3 assoc)))
+      (when (or (null confirm)
+                (y-or-n-p confirm))
+        (aurel-aur-login-maybe)
+        (aurel-url-post
+         (aurel-get-package-action-url package url-end)
+         (list (cons "token" (url-cookie-value (aurel-get-aur-cookie)))
+               (cons action-name "")))
+        t))))
 
 
 ;;; Interacting with pacman
@@ -592,7 +847,7 @@ Return modified info."
 INFO is alist of parameter symbols and values.
 Return modified info."
   (let ((param (assoc 'pkg-url info)))
-    (setcdr param (url-expand-file-name (cdr param) aurel-base-url)))
+    (setcdr param (url-expand-file-name (cdr param) aurel-aur-base-url)))
   info)
 
 
@@ -993,7 +1248,7 @@ ARG is the argument to the call."
    (format "rpc.php?type=%s&arg=%s"
            (url-hexify-string type)
            (url-hexify-string arg))
-   aurel-base-url))
+   aurel-aur-base-url))
 
 (defun aurel-get-package-info-url (package)
   "Return URL for getting info about a PACKAGE.
@@ -1014,12 +1269,16 @@ PACKAGE can be either a string (name) or a number (ID)."
 (defun aurel-get-maintainer-account-url (maintainer)
   "Return URL for MAINTAINER's AUR account."
   (url-expand-file-name (concat "account/" maintainer)
-                        aurel-base-url))
+                        aurel-aur-base-url))
 
 (defun aurel-get-aur-package-url (package)
   "Return AUR URL of a PACKAGE."
   (url-expand-file-name (concat "packages/" package)
-                        aurel-base-url))
+                        aurel-aur-base-url))
+
+(defun aurel-get-package-action-url (package action)
+  "Return URL for the PACKAGE ACTION."
+  (concat (aurel-get-aur-package-url package) "/" action))
 
 
 ;;; UI
