@@ -441,9 +441,8 @@ Used in `aurel-filter-contains-every-string'.")
 
 (defvar aurel-aur-filters
   '(aurel-aur-filter-intern aurel-filter-contains-every-string
-    aurel-aur-filter-date
-    aurel-filter-outdated aurel-filter-category
-    aurel-filter-pkg-url aurel-filter-aur-url)
+    aurel-aur-filter-date aurel-filter-outdated
+    aurel-filter-category aurel-filter-pkg-url)
   "List of filter functions applied to a package info got from AUR.
 
 Each filter function should accept a single argument - info alist
@@ -595,17 +594,6 @@ Return modified info."
   (let ((param (assoc 'pkg-url info)))
     (setcdr param (url-expand-file-name (cdr param) aurel-base-url)))
   info)
-
-(defun aurel-filter-aur-url (info)
-  "Add `aur-url' parameter to a package INFO.
-INFO is alist of parameter symbols and values.
-Return modified info."
-  (add-to-list
-   'info
-   (cons 'aur-url
-         (url-expand-file-name
-          (concat "packages/" (aurel-get-param-val 'name info))
-          aurel-base-url))))
 
 
 ;;; Searching/showing packages
@@ -1025,7 +1013,13 @@ PACKAGE can be either a string (name) or a number (ID)."
 
 (defun aurel-get-maintainer-account-url (maintainer)
   "Return URL for MAINTAINER's AUR account."
-  (url-expand-file-name (concat "account/" maintainer) aurel-base-url))
+  (url-expand-file-name (concat "account/" maintainer)
+                        aurel-base-url))
+
+(defun aurel-get-aur-package-url (package)
+  "Return AUR URL of a PACKAGE."
+  (url-expand-file-name (concat "packages/" package)
+                        aurel-base-url))
 
 
 ;;; UI
@@ -1541,7 +1535,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (outdated          . aurel-info-insert-outdated)
     (pkg-url           . aurel-info-insert-url)
     (home-url          . aurel-info-insert-url)
-    (aur-url           . aurel-info-insert-url)
+    (aur-url           . aurel-info-insert-aur-url)
     (architecture      . aurel-info-architecture)
     (provides          . aurel-info-provides)
     (replaces          . aurel-info-replaces)
@@ -1678,6 +1672,11 @@ Use `aurel-info-format' to format descriptions of parameters."
       (insert "\n"
               (format aurel-info-format ""))
       (aurel-info-insert-url (aurel-get-maintainer-account-url name)))))
+
+(defun aurel-info-insert-aur-url (url)
+  "Insert URL of the AUR package."
+  (aurel-info-insert-url
+   (aurel-get-aur-package-url (aurel-get-param-val 'name aurel-info))))
 
 (defun aurel-info-insert-url (url)
   "Make button from URL and insert it at point."
