@@ -1900,6 +1900,8 @@ Cdr - is a value (number or string) of that parameter.")
     (define-key map "l" 'aurel-history-back)
     (define-key map "r" 'aurel-history-forward)
     (define-key map "g" 'revert-buffer)
+    (define-key map "v" 'aurel-info-vote-unvote)
+    (define-key map "s" 'aurel-info-subscribe-unsubscribe)
     map)
   "Keymap for `aurel-info-mode'.")
 
@@ -2084,6 +2086,28 @@ Use `aurel-info-download-function'."
     (funcall aurel-info-download-function
              (aurel-get-param-val 'pkg-url aurel-info)
              dir)))
+
+(defun aurel-info-aur-user-action (action &optional norevert)
+  "Perform AUR user ACTION on the current package.
+ACTION is a symbol from `aurel-aur-user-actions'.
+If NOREVERT is non-nil, do not revert the buffer (i.e. do not
+refresh package information) after ACTION."
+  (and (aurel-aur-user-action
+        action (aurel-get-param-val 'name aurel-info))
+       (null norevert)
+       (revert-buffer nil t)))
+
+(defun aurel-info-vote-unvote (arg)
+  "Vote for the current package.
+With prefix (if ARG is non-nil), unvote."
+  (interactive "P")
+  (aurel-info-aur-user-action (if arg 'unvote 'vote)))
+
+(defun aurel-info-subscribe-unsubscribe (arg)
+  "Subscribe to the new comments of the current package.
+With prefix (if ARG is non-nil), unsubscribe."
+  (interactive "P")
+  (aurel-info-aur-user-action (if arg 'unsubscribe 'subscribe)))
 
 (provide 'aurel)
 
