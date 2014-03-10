@@ -1,10 +1,10 @@
-;;; aurel.el --- Search, get info and download AUR packages
+;;; aurel.el --- Search, get info, vote and download AUR packages
 
 ;; Copyright (C) 2014 Alex Kost
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.4
+;; Version: 0.5
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -23,9 +23,9 @@
 
 ;;; Commentary:
 
-;; The package provides an interface for searching, getting information
-;; and downloading packages from the Arch User Repository (AUR)
-;; <https://aur.archlinux.org/>.
+;; The package provides an interface for searching, getting information,
+;; voting, subscribing and downloading packages from the Arch User
+;; Repository (AUR) <https://aur.archlinux.org/>.
 
 ;; To manually install the package, add the following to your init-file:
 ;;
@@ -57,7 +57,15 @@
 ;; find what packages are installed.  To disable that, set
 ;; `aurel-installed-packages-check' to nil.
 
-;; For full description, see <https://github.com/alezost/aurel>.
+;; To vote/subscribe for a package, press "v"/"s" (with prefix
+;; unvote/unsubscribe) in a package info buffer (you should have an AUR
+;; account for that).  To add information about "Voted"/"Subscribed"
+;; status, use the following:
+;;
+;;   (setq aurel-aur-user-package-info-check t)
+
+;; For full description and screenshots, see
+;; <https://github.com/alezost/aurel>.
 
 ;;; Code:
 
