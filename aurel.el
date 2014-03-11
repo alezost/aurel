@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.5
+;; Version: 0.5.1
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -1448,6 +1448,7 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (define-key map "M" 'aurel-list-mark-all)
     (define-key map "U" 'aurel-list-unmark-all)
     (define-key map "\177" 'aurel-list-unmark-backward)
+    (define-key map "S" 'aurel-list-sort)
     (define-key map "g" 'revert-buffer)
     map)
   "Keymap for `aurel-list-mode'.")
@@ -1582,6 +1583,17 @@ downloaded or `aurel-list-multi-download-function' otherwise."
                 'pkg-url (aurel-list-get-package-info (car ids)))
                dir))))
 
+(defun aurel-list-sort (&optional n)
+  "Sort aurel list entries by the column at point.
+With a numeric prefix argument N, sort the Nth column.
+Same as `tabulated-list-sort', but also restore marks after sorting."
+  (interactive "P")
+  (let ((marks (mapcar #'car aurel-list-marks)))
+    (aurel-list-unmark-all)
+    (tabulated-list-sort n)
+    (when marks
+      (aurel-list-mark-packages marks))))
+
 ;;; Marking packages
 
 (defun aurel-list-mark ()
@@ -1598,13 +1610,21 @@ downloaded or `aurel-list-multi-download-function' otherwise."
                          (cons id overlay))))))
     (forward-line)))
 
-(defun aurel-list-mark-all ()
-  "Mark all packages for downloading."
-  (interactive)
+(defun aurel-list-mark-packages (ids)
+  "Mark specified packages.
+IDS is a list of packages ID to mark.  If IDS is t, mark all packages."
   (save-excursion
     (goto-char (point-min))
     (while (not (= (point) (point-max)))
-      (aurel-list-mark))))
+      (if (or (eq ids t)
+              (member (tabulated-list-get-id) ids))
+          (aurel-list-mark)
+        (forward-line)))))
+
+(defun aurel-list-mark-all ()
+  "Mark all packages for downloading."
+  (interactive)
+  (aurel-list-mark-packages t))
 
 (defun aurel-list--unmark ()
   "Unmark a package on the current line."
