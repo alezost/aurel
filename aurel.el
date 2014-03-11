@@ -1173,7 +1173,7 @@ performed."
 
 ;;; Downloading
 
-(defcustom aurel-download-directory "/tmp"
+(defcustom aurel-download-directory temporary-file-directory
   "Default directory for downloading AUR packages."
   :type 'directory
   :group 'aurel)
