@@ -1993,7 +1993,7 @@ If nil, display all parameters with no particular order.")
   "Alist with package info.
 
 Car of each assoc is a symbol from `aurel-param-description-alist'.
-Cdr - is a value (number or string) of that parameter.")
+Cdr - is a value of that parameter.")
 
 (defvar aurel-info-mode-map
   (let ((map (copy-keymap special-mode-map)))
