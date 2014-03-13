@@ -125,10 +125,10 @@ voted for the package or subscribed to receive comments)."
   "[-+_[:alnum:]]+"
   "Regexp matching a valid package name.")
 
-(defun aurel-get-string (val &optional face nil-val)
+(defun aurel-get-string (val &optional face)
   "Return string from VAL.
 If VAL is `aurel-none-string' return `aurel-empty-string'.
-If VAL is nil, return NIL-VAL or `aurel-false-string'.
+If VAL is nil, return `aurel-false-string'.
 If VAL is t, return `aurel-true-string'.
 If VAL is a number, use `number-to-string'.
 If VAL is a time value, format it with `aurel-date-format'.
@@ -139,7 +139,7 @@ If FACE is non-nil, propertize returned string with this FACE."
     (setq val
           (cond
            ((stringp val) val)
-           ((null val) (or nil-val aurel-false-string))
+           ((null val) aurel-false-string)
            ((eq t val) aurel-true-string)
            ((numberp val) (number-to-string val))
            ((aurel-time-p val)
@@ -697,31 +697,6 @@ PARAM-NAME is a string from `aurel-pacman-param-alist'."
 (defun aurel-get-param-val (param info)
   "Return a value of a parameter PARAM from a package INFO."
   (cdr (assoc param info)))
-
-(defvar aurel-param-nil-alist
-  '((maintainer . aurel-empty-string))
-  "Alist of the form ((PARAM . VAL) ...).
-PARAM is a parameter name.  VAL is a string or a variable used to
-replace parameter value (if it is nil) in a printable string
-instead of `aurel-false-string'.")
-
-(defun aurel-get-param-val-string (param info &optional face)
-  "Return printable value of a parameter PARAM from a package INFO.
-If there is no PARAM in INFO or its value is \"None\", return
-`aurel-empty-string'.  If the value of PARAM is nil, return value
-from `aurel-param-nil-alist' or `aurel-false-string'. If it is t,
-return `aurel-true-string'.  Otherwise, if VAL is not string, use
-`prin1-to-string'.
-If FACE is non-nil, propertize returned string with this FACE."
-  (let* ((assoc (assoc param info))
-         (val (cdr assoc)))
-    (if (null assoc)
-        aurel-empty-string
-      (let ((nil-val (cdr (assoc param aurel-param-nil-alist))))
-        (aurel-get-string
-         val face
-         (and nil-val
-              (if (boundp nil-val) (symbol-value nil-val) nil-val)))))))
 
 
 ;;; Filters for processing package info
@@ -1491,6 +1466,16 @@ Each association is a cons of parameter symbol and column name.
 If no parameter is not found in this alist, the value from
 `aurel-param-description-alist' is used for a column name.")
 
+(defvar aurel-list-column-value-alist
+  '((name              . aurel-list-get-name)
+    (maintainer        . aurel-list-get-maintainer)
+    (installed-version . aurel-list-get-installed-version))
+  "Alist for parameter values inserted in columns.
+Each association is a cons of parameter symbol from
+`aurel-param-description-alist' and a function returning a value
+that will be inserted.  The function should take a package info
+of the form of `aurel-info' as an argument.")
+
 (defvar aurel-list nil
   "Alist with packages info.
 
@@ -1595,15 +1580,34 @@ Use parameters from `aurel-list-column-format'."
              (apply #'vector
                     (mapcar
                      (lambda (col-spec)
-                       (let ((param (car col-spec)))
-                         (aurel-get-param-val-string
-                          param info
-                          ;; colorize outdated names
-                          (and (eq param 'name)
-                               (aurel-get-param-val 'outdated info)
-                               'aurel-info-outdated))))
+                       (let* ((param (car col-spec))
+                              (fun (cdr (assq param
+                                              aurel-list-column-value-alist))))
+                         (if fun
+                             (funcall fun info)
+                           (aurel-get-string
+                            (aurel-get-param-val param info)))))
                      aurel-list-column-format)))))
    list))
+
+(defun aurel-list-get-name (info)
+  "Return name of the package from a package INFO.
+Colorize the name with `aurel-info-outdated' if the package is
+out of date."
+  (aurel-get-string
+   (aurel-get-param-val 'name info)
+   (when (aurel-get-param-val 'outdated info)
+     'aurel-info-outdated)))
+
+(defun aurel-list-get-maintainer (info)
+  "Return maintainer name from a package INFO."
+  (or (aurel-get-param-val 'maintainer info)
+      aurel-empty-string))
+
+(defun aurel-list-get-installed-version (info)
+  "Return installed version from a package INFO."
+  (or (aurel-get-param-val 'installed-version info)
+      aurel-empty-string))
 
 (defun aurel-list-get-current-id ()
   "Return ID of the current package."
