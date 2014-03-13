@@ -1422,6 +1422,15 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   (aurel-search-show-packages
    'maintainer (list name) arg 'add))
 
+;;;###autoload
+(defun aurel-installed-packages (&optional arg)
+  "Display information about AUR packages installed in the system.
+The buffer for showing results is defined by `aurel-list-buffer-name'.
+With prefix (if ARG is non-nil), show results in a new buffer."
+  (interactive "P")
+  (aurel-search-show-packages
+   'name-or-id (aurel-get-foreign-packages) arg 'add))
+
 
 ;;; Package list
 
