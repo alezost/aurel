@@ -37,6 +37,7 @@ Add the following lines to your `.emacs`.
   (autoload 'aurel-package-info "aurel" nil t)
   (autoload 'aurel-package-search "aurel" nil t)
   (autoload 'aurel-maintainer-search "aurel" nil t)
+  (autoload 'aurel-installed-packages "aurel" nil t)
   ```
 
 - Set a directory where the packages will be downloaded:
@@ -72,6 +73,10 @@ If you prefer to install everything with pacman, there is
 - Get an information about a package by exact name or ID:
 
   `M-x aurel-package-info`
+
+- Display information about installed AUR packages:
+
+  `M-x aurel-installed-packages`
 
 There are 2 kinds of buffers (major modes) for representing an
 information about packages:
