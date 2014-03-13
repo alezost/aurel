@@ -302,13 +302,7 @@ If INHIBIT-COOKIES is non-nil, do not use saved cookies."
   (let ((url-request-method "POST")
         (url-request-extra-headers
          '(("Content-Type" . "application/x-www-form-urlencoded")))
-        (url-request-data
-         (mapconcat (lambda (arg)
-                      (concat (url-hexify-string (car arg))
-                              "="
-                              (url-hexify-string (cdr arg))))
-                    args
-                    "&")))
+        (url-request-data (aurel-get-fields-string args)))
     (aurel-debug 2 "POSTing to %s" url)
     (aurel-url-retrieve-synchronously url inhibit-cookies)))
 
