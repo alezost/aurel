@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.5.1
+;; Version: 0.5.2
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -33,6 +33,7 @@
 ;;   (autoload 'aurel-package-info "aurel" nil t)
 ;;   (autoload 'aurel-package-search "aurel" nil t)
 ;;   (autoload 'aurel-maintainer-search "aurel" nil t)
+;;   (autoload 'aurel-installed-packages "aurel" nil t)
 
 ;; Also set a directory where downloaded packages will be put:
 ;;
@@ -40,7 +41,8 @@
 
 ;; To search for packages, use `aurel-package-search' or
 ;; `aurel-maintainer-search' commands.  If you know the name of a
-;; package, use `aurel-package-info' command.
+;; package, use `aurel-package-info' command.  Also you can display a
+;; list of installed AUR packages with `aurel-installed-packages'.
 
 ;; Information about the packages is represented in a list-like buffer
 ;; similar to a buffer containing emacs packages.  To get more info
