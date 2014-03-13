@@ -130,19 +130,30 @@ voted for the package or subscribed to receive comments)."
 If VAL is `aurel-none-string' return `aurel-empty-string'.
 If VAL is nil, return NIL-VAL or `aurel-false-string'.
 If VAL is t, return `aurel-true-string'.
+If VAL is a number, use `number-to-string'.
+If VAL is a time value, format it with `aurel-date-format'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
   (if (equal val aurel-none-string)
       aurel-empty-string
     (setq val
           (cond
+           ((stringp val) val)
            ((null val) (or nil-val aurel-false-string))
            ((eq t val) aurel-true-string)
-           ((null (stringp val)) (prin1-to-string val))
-           (t val)))
+           ((numberp val) (number-to-string val))
+           ((aurel-time-p val)
+            (format-time-string aurel-date-format val))
+           (t (prin1-to-string val))))
     (if face
         (propertize val 'face face)
       val)))
+
+(defun aurel-time-p (val)
+  "Return non-nil, if VAL is a time value; return nil otherwise."
+  (condition-case nil
+      (decode-time val)
+    (error nil)))
 
 
 ;;; Debugging
@@ -835,29 +846,28 @@ Pass the check (return INFO), if `aurel-filter-strings' or
     info))
 
 (defun aurel-filter-date (info fun &rest params)
-  "Format date parameters PARAMS of a package INFO.
+  "Convert date parameters PARAMS of a package INFO to time values.
 INFO is alist of parameter symbols and values.
 FUN is a function taking parameter value as an argument and
-returning time value.  Use `aurel-date-format' for formatting.
+returning time value.
 Return modified info."
   (dolist (param info info)
     (let ((param-name (car param))
           (param-val  (cdr param)))
       (when (memq param-name params)
         (setcdr param
-                (format-time-string aurel-date-format
-                                    (funcall fun param-val)))))))
+                (funcall fun param-val))))))
 
 (defun aurel-aur-filter-date (info)
-  "Format date parameters of a package INFO with `aurel-date-format'.
-Formatted parameters: `first-date', `last-date'.
+  "Convert date parameters PARAMS of a package INFO to time values.
+Converted parameters: `first-date', `last-date'.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (aurel-filter-date info 'seconds-to-time 'first-date 'last-date))
 
 (defun aurel-pacman-filter-date (info)
-  "Format date parameters of a package INFO with `aurel-date-format'.
-Formatted parameters: `install-date', `build-date'.
+  "Convert date parameters PARAMS of a package INFO to time values.
+Converted parameters: `install-date', `build-date'.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (aurel-filter-date info 'date-to-time 'install-date 'build-date))
