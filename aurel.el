@@ -955,14 +955,19 @@ INFO is a filtered package info."
                          (cons (aurel-get-param-val param info) info))))
                 info-list)))
 
-(defun aurel-get-packages-by-name-or-id (name-or-id)
-  "Return packages by NAME-OR-ID.
-NAME-OR-ID may be a string or a number.
+(defun aurel-get-packages-by-name-or-id (&rest names)
+  "Return packages by NAMES.
+Each element from NAMES should be a string.  If there is only one
+element, it can also be a number (package ID).
 Returning value has a form of `aurel-list'."
-  (when (numberp name-or-id)
-    (setq name-or-id (number-to-string name-or-id)))
   (aurel-receive-packages-info
-   (aurel-get-package-info-url name-or-id)))
+   ;; AUR RPC service do not support specifying multiple packages by IDs
+   ;; (only by names), so we can't use `aurel-get-package-multiinfo-url'
+   ;; as a common case: if there is only one requested package, it can
+   ;; be either a name or ID.
+   (if (cdr names)
+       (aurel-get-package-multiinfo-url names)
+     (aurel-get-package-info-url (car names)))))
 
 (defun aurel-get-packages-by-string (&rest strings)
   "Return packages matching STRINGS.
@@ -1288,23 +1293,55 @@ For the meaning of URL and DIR, see `aurel-download-unpack'."
 
 ;;; Defining URL
 
+(defun aurel-get-fields-string (args)
+  "Return string of names and values from ARGS alist.
+Each association of ARGS has a form: (NAME . VALUE).
+If NAME and VALUE are not strings, they are converted to strings
+with `prin1-to-string'.
+Returning string has a form: \"NAME=VALUE&...\"."
+  (cl-flet ((hexify (arg)
+                    (url-hexify-string
+                     (if (stringp arg) arg (prin1-to-string arg)))))
+    (mapconcat (lambda (arg)
+                 (concat (hexify (car arg))
+                         "="
+                         (hexify (cdr arg))))
+               args
+               "&")))
+
+(defun aurel-get-multi-args-rpc-url (type args &optional type-name arg-name)
+  "Return URL for getting info about AUR packages.
+TYPE is the name of an allowed method.
+ARGS is a list of arguments to the call.
+TYPE-NAME is the name of a type field (\"type\" by default).
+ARG-NAME is the name of an arg field (\"arg[]\" by default)."
+  (or type-name
+      (setq type-name "type"))
+  (or arg-name
+      (setq arg-name "arg[]"))
+  (let ((fields (cons
+                 (cons type-name type)
+                 (mapcar (lambda (arg) (cons arg-name arg))
+                         args))))
+    (url-expand-file-name
+     (concat "rpc.php?" (aurel-get-fields-string fields))
+     aurel-aur-base-url)))
+
 (defun aurel-get-rpc-url (type arg)
   "Return URL for getting info about AUR packages.
 TYPE is the name of an allowed method.
 ARG is the argument to the call."
-  (url-expand-file-name
-   (format "rpc.php?type=%s&arg=%s"
-           (url-hexify-string type)
-           (url-hexify-string arg))
-   aurel-aur-base-url))
+  (aurel-get-multi-args-rpc-url type (list arg) "type" "arg"))
+
+(defun aurel-get-package-multiinfo-url (packages)
+  "Return URL for getting info about PACKAGES.
+Each package should be a string (package name)."
+  (aurel-get-multi-args-rpc-url "multiinfo" packages))
 
 (defun aurel-get-package-info-url (package)
   "Return URL for getting info about a PACKAGE.
 PACKAGE can be either a string (name) or a number (ID)."
-  (aurel-get-rpc-url "info"
-                     (if (numberp package)
-                         (number-to-string package)
-                       package)))
+  (aurel-get-rpc-url "info" package))
 
 (defun aurel-get-package-search-url (str)
   "Return URL for searching a package by string STR."
