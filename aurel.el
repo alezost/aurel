@@ -119,6 +119,10 @@ voted for the package or subscribed to receive comments)."
 (defvar aurel-none-string "None"
   "String saying that a parameter has no value.")
 
+(defvar aurel-package-name-re
+  "[-+_[:alnum:]]+"
+  "Regexp matching a valid package name.")
+
 (defun aurel-get-string (val &optional face nil-val)
   "Return string from VAL.
 If VAL is `aurel-none-string' return `aurel-empty-string'.
@@ -503,6 +507,26 @@ Return numeric exit status."
         (or buffer (get-buffer-create aurel-pacman-buffer-name))
       (erase-buffer)
       (apply 'call-process pacman nil t nil args))))
+
+(defun aurel-get-foreign-packages ()
+  "Return list of names of installed foreign packages."
+  (let ((buf (get-buffer-create aurel-pacman-buffer-name)))
+    (aurel-call-pacman buf "--query" "--foreign")
+    (aurel-pacman-query-names-buffer-parse buf)))
+
+(defun aurel-pacman-query-names-buffer-parse (&optional buffer)
+  "Parse BUFFER with packages names.
+BUFFER should contain an output returned by 'pacman -Q' command.
+If BUFFER is nil, use `aurel-pacman-buffer-name'.
+Return list of names of packages."
+  (with-current-buffer
+      (or buffer (get-buffer-create aurel-pacman-buffer-name))
+    (goto-char (point-min))
+    (let (names)
+      (while (re-search-forward
+              (concat "^\\(" aurel-package-name-re "\\) ") nil t)
+        (setq names (cons (match-string 1) names)))
+      names)))
 
 (defun aurel-get-installed-packages-info (&rest names)
   "Return information about installed packages NAMES.
