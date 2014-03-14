@@ -1810,6 +1810,11 @@ IDS is a list of packages ID to mark.  If IDS is t, mark all packages."
   "Face used for a number of votes of a package."
   :group 'aurel-info)
 
+(defface aurel-info-voted-mark
+  '((t :inherit aurel-info-voted))
+  "Face used for `aurel-info-voted-mark' string."
+  :group 'aurel-info)
+
 (defface aurel-info-outdated
   '((t :inherit font-lock-warning-face))
   "Face used if a package is out of date."
@@ -1939,6 +1944,20 @@ If 0, the history is disabled."
   :type 'integer
   :group 'aurel-info)
 
+(defcustom aurel-info-voted-mark "*"
+  "String inserted after the number of votes in info buffer.
+See `aurel-info-display-voted-mark' for details."
+  :type 'string
+  :group 'aurel-info)
+
+(defcustom aurel-info-display-voted-mark t
+  "If non-nil, display `aurel-info-voted-mark' in info buffer.
+It is displayed only if a package is voted by you (this
+information is available if `aurel-aur-user-package-info-check'
+is non-nil)."
+  :type 'boolean
+  :group 'aurel-info)
+
 (defcustom aurel-info-installed-package-string
   "\n\nThe package is installed:\n\n"
   "String inserted in info buffer if a package is installed.
@@ -1965,7 +1984,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (installed-version . aurel-info-version)
     (category          . aurel-info-category)
     (license           . aurel-info-license)
-    (votes             . aurel-info-votes)
+    (votes             . aurel-info-insert-votes)
     (first-date        . aurel-info-date)
     (last-date         . aurel-info-date)
     (install-date      . aurel-info-date)
@@ -2107,6 +2126,16 @@ Use `aurel-info-format' to format descriptions of parameters."
         (aurel-info-insert-val
          val (and (facep insert-val) insert-val)))
       (insert "\n"))))
+
+(defun aurel-info-insert-votes (votes)
+  "Insert the number of VOTES at point.
+If `aurel-info-display-voted-mark' is non-nil, insert
+`aurel-info-voted-mark' after."
+  (aurel-info-insert-val votes 'aurel-info-votes)
+  (and aurel-info-display-voted-mark
+       (aurel-get-param-val 'voted aurel-info)
+       (aurel-info-insert-val aurel-info-voted-mark
+                              'aurel-info-voted-mark)))
 
 (defun aurel-info-insert-maintainer (name)
   "Make button from maintainer NAME and insert it at point."
