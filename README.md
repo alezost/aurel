@@ -161,45 +161,61 @@ faster or if you don't have pacman installed), use the following:
 
 ### Package list
 
-Columns in a buffer with a list of packages can be configured with
-`aurel-list-column-format`.
+Anything you see in a buffer with a list of packages is configurable.
 
-For example, if you don't want to have a column with version but want to
-add **sortable** columns with maintainer and votes, try the following:
+Columns can be configured with `aurel-list-column-format`.  Descriptions
+of a package parameters (displayed in `aurel-info-mode` buffer) are
+stored in `aurel-param-description-alist` variable.  Columns in
+`aurel-list-mode` buffer have the same titles as these descriptions,
+unless they are not set in `aurel-list-column-name-alist`.
+
+So if you want a new column to be displayed, you need to add a proper
+value to `aurel-list-column-format` and optionally add a column name to
+`aurel-list-column-name-alist` and add an association to
+`aurel-list-column-value-alist` if you need some special calculations of
+the column values.
+
+Suppose, you want to rearrange columns, to make them more compact (and
+thus to shorten their names) and to add a new sortable column with the
+"Last Modified" time.  In such case you can do something like this (see
+the second [screenshot](#screenshots)):
 
 ```lisp
 (setq aurel-list-column-format
       '((name 20 t)
-        (maintainer 13 t)
-        (votes 5
-         (lambda (a b)
-           (> (string-to-number (aref (cadr a) 2))
-              (string-to-number (aref (cadr b) 2)))))
+        (maintainer 9 t)
+        (votes 5 aurel-list-sort-by-votes)
+        (version 8 t)
         (installed-version 8 t)
-        (description 30 nil)))
-```
-
-Descriptions of a package parameters (displayed in `aurel-info-mode`
-buffer) are stored in `aurel-param-description-alist` variable.  Columns
-in `aurel-list-mode` buffer have the same titles as these descriptions,
-unless they are not set in `aurel-list-column-name-alist`.  For example,
-the following shortened titles suit better the compact column format
-shown in the above example:
-
-```lisp
-(setq aurel-list-column-name-alist
+        (last-date 11 t)
+        (description 30 nil))
+      aurel-list-column-name-alist
       '((votes . "V.")
+        (maintainer . "Maint.")
+        (last-date . "Modified")
+        (version . "Ver.")
         (installed-version . "Inst.")))
+
+(eval-after-load 'aurel
+  '(add-to-list 'aurel-list-column-value-alist
+                '(last-date . my-aurel-list-get-last-date)))
+
+(defun my-aurel-list-get-last-date (info)
+  "Return formatted date when the package was last modified."
+  (format-time-string "%Y-%m-%d"
+                      (aurel-get-param-val 'last-date info)))
 ```
 
 ### Package info
 
 Anything you see in a buffer with a package info is configurable.
+
 Various aspects of displaying information about a package can be
 configured with `aurel-info-parameters`,
 `aurel-info-installed-parameters`, `aurel-info-aur-user-parameters`,
 `aurel-info-insert-params-alist`, `aurel-info-format`,
-`aurel-info-fill-column`, `aurel-info-installed-package-string`,
+`aurel-info-fill-column`, `aurel-info-voted-mark`,
+`aurel-info-display-voted-mark`, `aurel-info-installed-package-string`,
 `aurel-info-aur-user-string`, `aurel-info-ignore-empty-vals`,
 `aurel-info-show-maintainer-account` variables and with `aurel-info-...`
 faces.  For example:
@@ -207,27 +223,10 @@ faces.  For example:
 ```lisp
 (setq aurel-info-format "%-16s"
       aurel-info-ignore-empty-vals t
-      aurel-info-installed-package-string "\n  ————————————————————————————————\n\n"
-      aurel-info-aur-user-string aurel-info-installed-package-string
+      aurel-info-aur-user-string "————————————————————————————————————\n"
+      aurel-info-installed-package-string aurel-info-aur-user-string
+      aurel-date-format "%d-%b-%Y %T"
       aurel-empty-string "")
-```
-
-A more complex example: suppose you want to display a red star (*) after
-the number of votes if a package is voted by you (see the second
-screenshot).  For that we define a function that will insert needed
-information and replace the default value in
-`aurel-info-insert-params-alist` by this function:
-
-```lisp
-(defun aurel-info-insert-cool-votes (val)
-  (insert (propertize (if (numberp val) (number-to-string val) val)
-                      'face 'aurel-info-votes))
-  (when (aurel-get-param-val 'voted aurel-info)
-    (insert (propertize "*" 'face '(:foreground "red" :weight bold)))))
-
-(eval-after-load 'aurel
-  '(setcdr (assoc 'votes aurel-info-insert-params-alist)
-           'aurel-info-insert-cool-votes))
 ```
 
 ### Downloading a package
@@ -249,11 +248,11 @@ following functions are available:
 
 Aurel with default settings:
 
-![Default](http://i.imgur.com/okR2x9q.png)
+![Default](http://i.imgur.com/5uiwHRc.png)
 
 Aurel with all modifications, described above:
 
-![Changed](http://i.imgur.com/6p2sWn2.png)
+![Changed](http://i.imgur.com/YcJOgQF.png)
 
 In both screenshots `alect-dark` theme from
 [alect-themes](https://github.com/alezost/alect-themes) is used.
