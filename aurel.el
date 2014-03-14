@@ -1487,10 +1487,18 @@ Cdr - is alist of package info of the form of `aurel-info'.")
 Each association is a cons cell of a package ID and overlay used
 to highlight a line with this package.")
 
+(defvar aurel-list-votes-column nil
+  "The number of column with votes in the current tabulated-list.")
+
 (defvar aurel-list-column-format
-  '((name 25 t)
-    (version 15 nil)
-    (installed-version 15 t)
+  '((name 20 t)
+    (version 12 nil)
+    (installed-version 12 t)
+    (maintainer 13 t)
+    ;; We cannot use simple sort for votes as they will be sorted as
+    ;; strings, e.g.: (1, 13, 2, 200, 3) instead of (1, 2, 3, 13, 200).
+    ;; So we use a special function to compare votes as numbers.
+    (votes 8 aurel-list-sort-by-votes)
     (description 30 nil))
   "List specifying columns used in the buffer with a list of packages.
 Each element of the list should have the form (NAME WIDTH SORT . PROPS).
@@ -1514,6 +1522,15 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     map)
   "Keymap for `aurel-list-mode'.")
 
+(defun aurel-list-sort-by-votes (a b)
+  "Compare tabulated entries A and B by the number of votes.
+It is a sort predicate for `tabulated-list-format'.
+Return non-nil, if A has more votes than B."
+  (cl-flet ((votes (entry)
+                   (string-to-number (aref (cadr entry)
+                                           aurel-list-votes-column))))
+    (> (votes a) (votes b))))
+
 (defun aurel-list-get-buffer-name (&optional unique)
   "Return a name of a list buffer.
 If UNIQUE is non-nil, make the name unique."
@@ -1531,6 +1548,12 @@ If UNIQUE is non-nil, make the name unique."
   (make-local-variable 'aurel-revert-action)
   (setq-local revert-buffer-function 'aurel-revert-buffer)
   (setq-local aurel-history-size aurel-list-history-size)
+  (setq-local aurel-list-votes-column
+              (cl-loop
+               for col-spec in aurel-list-column-format
+               for i from 0
+               until (eq (car col-spec) 'votes)
+               finally return i))
   (setq default-directory aurel-download-directory)
   (setq tabulated-list-format
         (apply #'vector
