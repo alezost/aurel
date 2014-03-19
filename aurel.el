@@ -1576,10 +1576,10 @@ If BUFFER is nil, use (create if needed) buffer with the name
   (let ((buf (get-buffer-create
               (or buffer aurel-list-buffer-name))))
     (with-current-buffer buf
-      (aurel-list-show-1 list))
+      (aurel-list-show-in-current-buffer list))
     (pop-to-buffer-same-window buf)))
 
-(defun aurel-list-show-1 (list)
+(defun aurel-list-show-in-current-buffer (list)
   "Display a LIST of packages in current buffer.
 LIST should have the form of `aurel-list'."
   (let ((inhibit-read-only t))
@@ -2080,10 +2080,10 @@ If BUFFER is nil, use (create if needed) buffer with the name
   (let ((buf (get-buffer-create
               (or buffer aurel-info-buffer-name))))
     (with-current-buffer buf
-      (aurel-info-show-1 info))
+      (aurel-info-show-in-current-buffer info))
     (pop-to-buffer-same-window buf)))
 
-(defun aurel-info-show-1 (info)
+(defun aurel-info-show-in-current-buffer (info)
   "Display package information INFO in current buffer.
 INFO should have the form of `aurel-info'."
   (aurel-info-mode)
