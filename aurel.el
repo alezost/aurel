@@ -1193,6 +1193,17 @@ performed."
   :type 'string
   :group 'aurel)
 
+(defvar aurel-download-functions
+  '(aurel-download aurel-download-unpack aurel-download-unpack-dired
+    aurel-download-unpack-pkgbuild aurel-download-unpack-eshell)
+  "List of available download functions.")
+
+(defun aurel-download-get-defcustom-type ()
+  "Return `defcustom' type for selecting a download function."
+  `(radio ,@(mapcar (lambda (fun) (list 'function-item fun))
+                    aurel-download-functions)
+          (function :tag "Other function")))
+
 (defun aurel-download (url dir)
   "Download AUR package from URL to a directory DIR.
 Return a path to the downloaded file."
@@ -1438,14 +1449,14 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   "Function used for downloading a single AUR package from list buffer.
 It should accept 2 arguments: URL of a downloading file and a
 destination directory."
-  :type 'function
+  :type (aurel-download-get-defcustom-type)
   :group 'aurel-list)
 
 (defcustom aurel-list-multi-download-function 'aurel-download-unpack
   "Function used for downloading multiple AUR packages from list buffer.
 It should accept 2 arguments: URL of a downloading file and a
 destination directory."
-  :type 'function
+  :type (aurel-download-get-defcustom-type)
   :group 'aurel-list)
 
 (defcustom aurel-list-multi-download-no-confirm nil
@@ -2111,7 +2122,7 @@ parameter, it is added to it; see `aurel-info-format'."
   "Function used for downloading AUR package from package info buffer.
 It should accept 2 arguments: URL of a downloading file and a
 destination directory."
-  :type 'function
+  :type (aurel-download-get-defcustom-type)
   :group 'aurel-info)
 
 (defcustom aurel-info-history-size 100
