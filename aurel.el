@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.5.3
+;; Version: 0.6
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
@@ -49,7 +49,10 @@
 ;; about a package, press "RET" on a package line.  To download a
 ;; package, press "d" (don't forget to set `aurel-download-directory'
 ;; before).  In a list buffer, you can mark several packages for
-;; downloading with "m"/"M" (and unmark with "u"/"U" and "DEL").
+;; downloading with "m"/"M" (and unmark with "u"/"U" and "DEL"); also
+;; you can perform filtering (press "f f" to enable a filter and "f d"
+;; to disable all filters) of a current list to hide particular
+;; packages.
 
 ;; It is possible to move to the previous/next displayed results with
 ;; "l"/"r" (each aurel buffer has its own history) and to refresh
