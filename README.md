@@ -78,6 +78,11 @@ If you prefer to install everything with pacman, there is
 
   `M-x aurel-installed-packages`
 
+  A particular filter (see [Filtering](#filtering)) is useful here:
+  press <kbd>f</kbd><kbd>v</kbd> to hide the packages with the same
+  installed and current AUR versions (i.e. to see the potential
+  candidates for updating).
+
 There are 2 kinds of buffers (major modes) for representing an
 information about packages:
 
@@ -205,6 +210,24 @@ the second [screenshot](#screenshots)):
   (format-time-string "%Y-%m-%d"
                       (aurel-get-param-val 'last-date info)))
 ```
+
+#### Filtering
+
+You can filter the current list of packages to hide some packages.
+Press <kbd>f</kbd><kbd>C-h</kbd> to see all available filter bindings.
+The most useful ones are:
+
+- <kbd>f</kbd><kbd>f</kbd> to select and enable a filter;
+- <kbd>f</kbd><kbd>d</kbd> to disable all filters;
+
+A new filter will be **added** to the enabled ones, so for example you
+can hide unmaintained and outdated packages by pressing
+<kbd>f</kbd><kbd>m</kbd> and <kbd>f</kbd><kbd>o</kbd>.  If you want to
+make a filter **the only** active, press <kbd>C-u</kbd> before a filter
+command.
+
+If you have an idea of a new useful filter, you may
+[open an issue](https://github.com/alezost/aurel/issues/new) about it.
 
 ### Package info
 
