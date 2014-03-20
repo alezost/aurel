@@ -1482,6 +1482,24 @@ of the form of `aurel-info' as an argument.")
 Car of each assoc is a package ID (number).
 Cdr - is alist of package info of the form of `aurel-info'.")
 
+(defvar aurel-list-filters nil
+  "List of filter functions applied to a package info.
+
+Each filter function should accept a single argument - info alist
+with package parameters and should return info alist or
+nil (which means: do not display this package).  These filters
+are applied before displaying the list of packages.")
+
+(defvar aurel-list-available-filters
+  '(aurel-list-filter-maintained aurel-list-filter-unmaintained
+    aurel-list-filter-outdated aurel-list-filter-not-outdated
+    aurel-list-filter-match-regexp aurel-list-filter-not-match-regexp
+    aurel-list-filter-different-versions aurel-list-filter-same-versions)
+  "List of commands that can be called for filtering a package list.
+Used by `aurel-list-enable-filter'.
+Each function should make a proper filter function and should
+take one argument and pass those to `aurel-list-apply-filter'.")
+
 (defvar aurel-list-marks nil
   "Alist of current marks.
 Each association is a cons cell of a package ID and overlay used
@@ -1518,6 +1536,16 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
     (define-key map "U" 'aurel-list-unmark-all)
     (define-key map "\177" 'aurel-list-unmark-backward)
     (define-key map "S" 'aurel-list-sort)
+    (define-key map "ff" 'aurel-list-enable-filter)
+    (define-key map "fd" 'aurel-list-disable-filters)
+    (define-key map "fv" 'aurel-list-filter-same-versions)
+    (define-key map "fV" 'aurel-list-filter-different-versions)
+    (define-key map "fm" 'aurel-list-filter-unmaintained)
+    (define-key map "fM" 'aurel-list-filter-maintained)
+    (define-key map "fo" 'aurel-list-filter-outdated)
+    (define-key map "fO" 'aurel-list-filter-not-outdated)
+    (define-key map "fr" 'aurel-list-filter-not-match-regexp)
+    (define-key map "fR" 'aurel-list-filter-match-regexp)
     (define-key map "g" 'revert-buffer)
     map)
   "Keymap for `aurel-list-mode'.")
@@ -1544,6 +1572,7 @@ If UNIQUE is non-nil, make the name unique."
 
 \\{aurel-list-mode-map}"
   (make-local-variable 'aurel-list)
+  (make-local-variable 'aurel-list-filters)
   (make-local-variable 'aurel-list-marks)
   (make-local-variable 'aurel-revert-action)
   (setq-local revert-buffer-function 'aurel-revert-buffer)
@@ -1586,8 +1615,16 @@ LIST should have the form of `aurel-list'."
     (erase-buffer))
   (aurel-list-mode)
   (setq aurel-list list)
+  (aurel-list-print))
+
+(defun aurel-list-print (&optional list)
+  "Filter and print package LIST into the current tabulated-list buffer.
+If LIST is nil, use `aurel-list'."
+  ;; TODO restore marks for the packages that survive filtering
+  (aurel-list-unmark-all)
   (setq tabulated-list-entries
-        (aurel-list-get-entries list))
+        (aurel-list-get-entries
+         (aurel-list-apply-filters (or list aurel-list))))
   (tabulated-list-print))
 
 (defun aurel-list-get-entries (list)
@@ -1757,6 +1794,145 @@ IDS is a list of packages ID to mark.  If IDS is t, mark all packages."
   (dolist (assoc aurel-list-marks)
     (delete-overlay (cdr assoc)))
   (setq aurel-list-marks nil))
+
+;;; Filtering package list
+
+(defun aurel-list-apply-filters (list &optional filters)
+  "Apply FILTERS to the LIST of packages.
+
+LIST should have the form of `aurel-list'.
+If FILTERS is nil, use `aurel-list-filters'.
+
+Each package info from LIST is passed as an argument to the first
+function from FILTERS, the returned result is passed to the
+second function from that list and so on.  If one of the FILTERS
+returns nil, this package info is not passed (do not call the
+rest filters in this case).
+
+Return a list containing all passed packages info."
+  (if (setq filters (or filters aurel-list-filters))
+      (cl-remove-if-not
+       (lambda (package)
+         (aurel-apply-filters (cdr package) filters))
+       list)
+    list))
+
+(defun aurel-list-apply-filter (filter &optional replace)
+  "Apply FILTER to the current package list and print results.
+If REPLACE is nil, add FILTER to the existing ones; if it is
+non-nil, remove other filters and make FILTER the only active
+one."
+  (if replace
+      (setq aurel-list-filters (list filter))
+    (add-to-list 'aurel-list-filters filter))
+  (aurel-list-print))
+
+(defun aurel-list-enable-filter (arg)
+  "Prompt for a function for filtering package list and call it.
+Choose candidates from `aurel-list-available-filters'.
+If ARG is non-nil (with prefix), make selected filter the only
+active one (remove other filters)."
+  (interactive "P")
+  (let ((fun (intern (completing-read
+                      (if current-prefix-arg
+                          "Add filter: "
+                        "Enable filter: ")
+                      aurel-list-available-filters))))
+    (or (fboundp fun)
+        (error "Wrong function %s" fun))
+    (funcall fun arg)))
+
+(defun aurel-list-disable-filters ()
+  "Disable all current filters and redisplay packages."
+  (interactive)
+  (setq aurel-list-filters nil)
+  (aurel-list-print))
+
+(defun aurel-list-filter-maintained (arg)
+  "Filter current list by hiding maintained packages.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (unless (aurel-get-param-val 'maintainer info)
+       info))
+   arg))
+
+(defun aurel-list-filter-unmaintained (arg)
+  "Filter current list by hiding unmaintained packages.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (when (aurel-get-param-val 'maintainer info)
+       info))
+   arg))
+
+(defun aurel-list-filter-outdated (arg)
+  "Filter current list by hiding outdated packages.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (unless (aurel-get-param-val 'outdated info)
+       info))
+   arg))
+
+(defun aurel-list-filter-not-outdated (arg)
+  "Filter current list by hiding not outdated packages.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (when (aurel-get-param-val 'outdated info)
+       info))
+   arg))
+
+(defun aurel-list-filter-same-versions (arg)
+  "Hide packages with the same installed and available AUR versions.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (unless (equal (aurel-get-param-val 'version info)
+                    (aurel-get-param-val 'installed-version info))
+       info))
+   arg))
+
+(defun aurel-list-filter-different-versions (arg)
+  "Hide packages with different installed and available AUR versions.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (aurel-list-apply-filter
+   (lambda (info)
+     (when (equal (aurel-get-param-val 'version info)
+                  (aurel-get-param-val 'installed-version info))
+       info))
+   arg))
+
+(defun aurel-list-filter-match-regexp (arg)
+  "Hide packages with names or descriptions matching prompted regexp.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (let ((re (read-regexp "Hide packages matching regexp: ")))
+    (aurel-list-apply-filter
+     `(lambda (info)
+        (unless (or (string-match-p ,re (aurel-get-param-val 'name info))
+                    (string-match-p ,re (aurel-get-param-val 'description info)))
+          info))
+     arg)))
+
+(defun aurel-list-filter-not-match-regexp (arg)
+  "Hide packages with names or descriptions not matching prompted regexp.
+See `aurel-list-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (let ((re (read-regexp "Hide packages not matching regexp: ")))
+    (aurel-list-apply-filter
+     `(lambda (info)
+        (when (or (string-match-p ,re (aurel-get-param-val 'name info))
+                  (string-match-p ,re (aurel-get-param-val 'description info)))
+          info))
+     arg)))
 
 
 ;;; Package info
