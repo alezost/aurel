@@ -599,6 +599,8 @@ Return alist with parameter names and values."
     (version     . "Version")
     (name        . "Name")
     (id          . "ID")
+    (pkg-name    . "PackageBase")
+    (pkg-id      . "PackageBaseID")
     (maintainer  . "Maintainer"))
   "Association list of symbols and names of package info parameters.
 Car of each assoc is a symbol used in code of this package.
