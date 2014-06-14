@@ -2250,8 +2250,7 @@ If UNIQUE is non-nil, make the name unique."
       (generate-new-buffer aurel-info-buffer-name)
     aurel-info-buffer-name))
 
-(define-derived-mode aurel-info-mode
-    nil aurel-info-mode-name
+(define-derived-mode aurel-info-mode special-mode aurel-info-mode-name
   "Major mode for displaying information about an AUR package.
 
 \\{aurel-info-mode-map}"
@@ -2259,7 +2258,6 @@ If UNIQUE is non-nil, make the name unique."
   (make-local-variable 'aurel-revert-action)
   (setq-local revert-buffer-function 'aurel-revert-buffer)
   (setq-local aurel-history-size aurel-info-history-size)
-  (setq buffer-read-only t)
   (setq default-directory aurel-download-directory))
 
 (defun aurel-info-show (info &optional buffer)
