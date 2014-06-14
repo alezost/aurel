@@ -2232,14 +2232,14 @@ Car of each assoc is a symbol from `aurel-param-description-alist'.
 Cdr - is a value of that parameter.")
 
 (defvar aurel-info-mode-map
-  (let ((map (copy-keymap special-mode-map)))
-    (define-key map "d" 'aurel-info-download-package)
-    (define-key map "\t" 'forward-button)
-    (define-key map [backtab] 'backward-button)
-    (define-key map "l" 'aurel-history-back)
-    (define-key map "r" 'aurel-history-forward)
-    (define-key map "v" 'aurel-info-vote-unvote)
-    (define-key map "s" 'aurel-info-subscribe-unsubscribe)
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map (make-composed-keymap button-buffer-map
+                                                 special-mode-map))
+    (define-key map (kbd "d") 'aurel-info-download-package)
+    (define-key map (kbd "l") 'aurel-history-back)
+    (define-key map (kbd "r") 'aurel-history-forward)
+    (define-key map (kbd "v") 'aurel-info-vote-unvote)
+    (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe)
     map)
   "Keymap for `aurel-info-mode'.")
 
