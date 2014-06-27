@@ -1,10 +1,14 @@
 ## About
 
-This is an Emacs package for searching, getting information, voting,
-subscribing for comments and downloading AUR
-([Arch User Repository][aur]) packages.  Its functionality is very
-similar to the one provided by [cower][cower] and [aurvote][aurvote],
-but instead of command-line interface you use Emacs interface.
+This is an Emacs package for searching, getting information and
+downloading AUR ([Arch User Repository][aur]) packages.  Its
+functionality is very similar to the one provided by [cower][cower], but
+instead of the command-line interface you use Emacs interface.
+
+Also you can use it for (un)voting for packages and (un)subscribing for
+package comments (see [AUR account actions](#aur-account-actions)),
+i.e. it may be a substitution for [aurvote][aurvote] and
+[aurnotify][aurnotify].
 
 The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
@@ -27,13 +31,13 @@ Add the following lines to your `.emacs`.
 
 - Add a directory with this package to the `load-path`:
 
-  ```lisp
+  ```elisp
   (add-to-list 'load-path "/path/to/aurel-dir")
   ```
 
 - Add autoloads for the interactive functions:
 
-  ```lisp
+  ```elisp
   (autoload 'aurel-package-info "aurel" nil t)
   (autoload 'aurel-package-search "aurel" nil t)
   (autoload 'aurel-maintainer-search "aurel" nil t)
@@ -42,7 +46,7 @@ Add the following lines to your `.emacs`.
 
 - Set a directory where the packages will be downloaded:
 
-  ```lisp
+  ```elisp
   (setq aurel-download-directory "~/abs")
   ```
 
@@ -131,7 +135,7 @@ To enable receiving additional AUR user specific information (`Voted`
 and `Subscribed` lines should appear in the info buffer), use the
 following:
 
-```lisp
+```elisp
 (setq aurel-aur-user-package-info-check t)
 ```
 
@@ -139,7 +143,14 @@ The first time `aurel` needs the above information, you will be prompted
 for your AUR account (you may set `aurel-aur-user-name` variable for
 convenience) and a password.  The password is not saved anywhere, but a
 login cookie is saved (emacs saves cookies in `~/.emacs.d/url/cookies`
-by default), so you will not be prompted for credentials next time.
+by default).  The cookie is valid for about a month, so if you don't
+want to be prompted for the credentials every month, you may add the
+following line to your `~/.authinfo` (or `~/.authinfo.gpg`) file (see
+[auth manual][auth-source] for details):
+
+    machine aur.archlinux.org login <user> password <password>
+
+(Substitute `<user>` and `<password>` with your credentials)
 
 ## Configuration
 
@@ -148,7 +159,7 @@ User options can be explored with ``M-x customize-group RET aurel``.
 If you don't like the names of info and list modes and buffers, you can
 change those, for example:
 
-```lisp
+```elisp
 (setq aurel-list-mode-name "aurel-list"
       aurel-info-mode-name "aurel-info"
       aurel-list-buffer-name "*aur-list*"
@@ -160,7 +171,7 @@ server, pacman is called to get additional information about installed
 packages.  If you want to disable that (to make the process a bit
 faster or if you don't have pacman installed), use the following:
 
-```lisp
+```elisp
 (setq aurel-installed-packages-check nil)
 ```
 
@@ -185,7 +196,7 @@ thus to shorten their names) and to add a new sortable column with the
 "Last Modified" time.  In such case you can do something like this (see
 the second [screenshot](#screenshots)):
 
-```lisp
+```elisp
 (setq aurel-list-column-format
       '((name 20 t)
         (maintainer 9 t)
@@ -243,7 +254,7 @@ configured with `aurel-info-parameters`,
 `aurel-info-show-maintainer-account` variables and with `aurel-info-...`
 faces.  For example:
 
-```lisp
+```elisp
 (setq aurel-info-format "%-16s"
       aurel-info-ignore-empty-vals t
       aurel-info-aur-user-string "————————————————————————————————————\n"
@@ -284,3 +295,5 @@ In both screenshots `alect-dark` theme from
 [aur]: https://aur.archlinux.org/
 [cower]: http://github.com/falconindy/cower
 [aurvote]: https://aur.archlinux.org/packages/aurvote
+[aurnotify]: https://aur.archlinux.org/packages/aurnotify
+[auth-source]: https://www.gnu.org/software/emacs/manual/html_node/auth/Help-for-users.html#Help-for-users
