@@ -467,10 +467,10 @@ CONFIRM is a prompt to confirm the action or nil if it is not required.")
   "Return the name of an ACTION."
   (cadr (assoc action aurel-aur-user-actions)))
 
-(defun aurel-aur-user-action (action package)
-  "Perform AUR user ACTION on the PACKAGE.
+(defun aurel-aur-user-action (action package-base)
+  "Perform AUR user ACTION on the PACKAGE-BASE.
 ACTION is a symbol from `aurel-aur-user-actions'.
-PACKAGE is a name of the package (string).
+PACKAGE-BASE is a name of the package base (string).
 Return non-nil, if ACTION was performed; return nil otherwise."
   (let ((assoc (assoc action aurel-aur-user-actions)))
     (let ((action-name (nth 1 assoc))
@@ -480,7 +480,7 @@ Return non-nil, if ACTION was performed; return nil otherwise."
                 (y-or-n-p confirm))
         (aurel-aur-login-maybe)
         (aurel-url-post
-         (aurel-get-package-action-url package url-end)
+         (aurel-get-package-action-url package-base url-end)
          (list (cons "token" (url-cookie-value (aurel-get-aur-cookie)))
                (cons action-name "")))
         t))))
@@ -607,8 +607,8 @@ Return alist with parameter names and values."
     (version     . "Version")
     (name        . "Name")
     (id          . "ID")
-    (pkg-name    . "PackageBase")
-    (pkg-id      . "PackageBaseID")
+    (base-name   . "PackageBase")
+    (base-id     . "PackageBaseID")
     (maintainer  . "Maintainer"))
   "Association list of symbols and names of package info parameters.
 Car of each assoc is a symbol used in code of this package.
@@ -640,6 +640,7 @@ Cdr - is a parameter name (string) returned by pacman.")
   '((pkg-url           . "Download URL")
     (home-url          . "Home Page")
     (aur-url           . "AUR Page")
+    (base-url          . "Package Base")
     (last-date         . "Last Modified")
     (first-date        . "Submitted")
     (outdated          . "Out Of Date")
@@ -650,6 +651,8 @@ Cdr - is a parameter name (string) returned by pacman.")
     (version           . "Version")
     (name              . "Name")
     (id                . "ID")
+    (base-name         . "Package Base")
+    (base-id           . "Package Base ID")
     (maintainer        . "Maintainer")
     (installed-name    . "Name")
     (installed-version . "Version")
@@ -1366,9 +1369,15 @@ PACKAGE can be either a string (name) or a number (ID)."
   (url-expand-file-name (concat "packages/" package)
                         aurel-aur-base-url))
 
-(defun aurel-get-package-action-url (package action)
-  "Return URL for the PACKAGE ACTION."
-  (concat (aurel-get-aur-package-url package) "/" action))
+(defun aurel-get-package-base-url (package-base)
+  "Return AUR URL of a PACKAGE-BASE."
+  (url-expand-file-name (concat "pkgbase/" package-base)
+                        aurel-aur-base-url))
+
+(defun aurel-get-package-action-url (package-base action)
+  "Return URL for the PACKAGE-BASE ACTION."
+  (concat (aurel-get-package-base-url package-base)
+          "/" action))
 
 
 ;;; UI
@@ -2186,7 +2195,9 @@ It is inserted after printing info from AUR and before info from pacman."
 
 (defvar aurel-info-insert-params-alist
   '((id                . aurel-info-id)
+    (base-id           . aurel-info-id)
     (name              . aurel-info-name)
+    (base-name         . aurel-info-name)
     (maintainer        . aurel-info-insert-maintainer)
     (version           . aurel-info-version)
     (installed-version . aurel-info-version)
@@ -2204,6 +2215,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (pkg-url           . aurel-info-insert-url)
     (home-url          . aurel-info-insert-url)
     (aur-url           . aurel-info-insert-aur-url)
+    (base-url          . aurel-info-insert-base-url)
     (architecture      . aurel-info-architecture)
     (provides          . aurel-info-provides)
     (replaces          . aurel-info-replaces)
@@ -2220,7 +2232,7 @@ symbol is a face name, it is used for the value; if it is a function,
 it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
-  '(id name version maintainer description home-url aur-url
+  '(id name version maintainer description home-url aur-url base-url
     license category votes outdated first-date last-date)
   "List of parameters displayed in package info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
@@ -2363,7 +2375,14 @@ If `aurel-info-display-voted-mark' is non-nil, insert
 (defun aurel-info-insert-aur-url (url)
   "Insert URL of the AUR package."
   (aurel-info-insert-url
-   (aurel-get-aur-package-url (aurel-get-param-val 'name aurel-info))))
+   (aurel-get-aur-package-url
+    (aurel-get-param-val 'name aurel-info))))
+
+(defun aurel-info-insert-base-url (url)
+  "Insert URL of the AUR package base."
+  (aurel-info-insert-url
+   (aurel-get-package-base-url
+    (aurel-get-param-val 'base-name aurel-info))))
 
 (defun aurel-info-insert-url (url)
   "Make button from URL and insert it at point."
@@ -2457,7 +2476,7 @@ ACTION is a symbol from `aurel-aur-user-actions'.
 If NOREVERT is non-nil, do not revert the buffer (i.e. do not
 refresh package information) after ACTION."
   (and (aurel-aur-user-action
-        action (aurel-get-param-val 'name aurel-info))
+        action (aurel-get-param-val 'base-name aurel-info))
        (null norevert)
        (revert-buffer nil t)))
 
