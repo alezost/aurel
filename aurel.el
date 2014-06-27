@@ -339,6 +339,8 @@ Return nil, if there is no such cookie or it is expired."
         (aurel-debug 4 "AUR login cookie is valid")
         cookie))))
 
+(declare-function auth-source-search "auth-source" t)
+
 (defun aurel-aur-login-maybe (&optional force noerror)
   "Login to AUR, use cookie if possible.
 If FORCE is non-nil (interactively, with prefix), prompt for
@@ -349,8 +351,14 @@ See `aurel-aur-login' for the meaning of NOERROR and returning value."
       (progn
         (aurel-debug 2 "Using cookie instead of a real login")
         t)
-    ;; TODO add support for authinfo
     (let (user password)
+      (let ((auth (car (auth-source-search :host aurel-aur-host))))
+        (when auth
+          (let ((secret (plist-get auth :secret)))
+            (setq user (plist-get auth :user)
+                  password (if (functionp secret)
+                               (funcall secret)
+                             secret)))))
       (when (or force (null user))
         (setq user (read-string "AUR user name: " aurel-aur-user-name)))
       (when (or force (null password))
