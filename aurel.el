@@ -2323,7 +2323,7 @@ INFO should have the form of `aurel-info'."
 (defun aurel-info-print (info &rest params)
   "Insert (pretty print) package INFO into current buffer.
 Each element from PARAMS is a parameter to insert (symbol from
-`aurel-param-description-alist'."
+`aurel-param-description-alist')."
   (mapc (lambda (param)
           (aurel-info-print-param
            param (aurel-get-param-val param info)))
