@@ -22,7 +22,7 @@ aurel looks like.
 
 ### MELPA
 
-The package can be installed from [MELPA](http://melpa.milkbox.net)
+The package can be installed from [MELPA](http://melpa.org)
 (with `M-x package-install` or `M-x list-packages`).
 
 ### Manual
