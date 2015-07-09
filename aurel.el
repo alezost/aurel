@@ -488,7 +488,7 @@ Return non-nil, if ACTION was performed; return nil otherwise."
 
 ;;; Interacting with pacman
 
-(defcustom aurel-pacman-program "pacman"
+(defcustom aurel-pacman-program (executable-find "pacman")
   "Absolute or relative name of `pacman' program."
   :type 'string
   :group 'aurel)
@@ -519,18 +519,16 @@ Contain 2 parenthesized groups: parameter name and its value.")
   "Call `aurel-pacman-program' with arguments ARGS.
 Insert output in BUFFER.  If it is nil, use `aurel-pacman-buffer-name'.
 Return numeric exit status."
-  (let ((pacman (executable-find aurel-pacman-program)))
-    (or pacman
-        (error (concat "Couldn't find '%s'.\n"
-                       "Set aurel-pacman-program to a proper value")
-               aurel-pacman-program))
-    (with-current-buffer
-        (or buffer (get-buffer-create aurel-pacman-buffer-name))
-      (erase-buffer)
-      (let ((process-environment
-             (cons (concat "LANG=" aurel-pacman-locale)
-                   process-environment)))
-        (apply #'call-process pacman nil t nil args)))))
+  (or aurel-pacman-program
+      (error (concat "Couldn't find pacman.\n"
+                     "Set aurel-pacman-program to a proper value")))
+  (with-current-buffer
+      (or buffer (get-buffer-create aurel-pacman-buffer-name))
+    (erase-buffer)
+    (let ((process-environment
+           (cons (concat "LANG=" aurel-pacman-locale)
+                 process-environment)))
+      (apply #'call-process aurel-pacman-program nil t nil args))))
 
 (defun aurel-get-foreign-packages ()
   "Return list of names of installed foreign packages."
