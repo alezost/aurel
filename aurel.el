@@ -1,10 +1,10 @@
 ;;; aurel.el --- Search, get info, vote and download AUR packages
 
-;; Copyright (C) 2014 Alex Kost
+;; Copyright (C) 2014, 2015 Alex Kost
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.6
+;; Version: 0.7
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 
