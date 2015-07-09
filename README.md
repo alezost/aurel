@@ -1,3 +1,7 @@
+[![License GPL 3](https://img.shields.io/badge/license-GPL_3-orange.svg)](http://www.gnu.org/licenses/gpl-3.0.txt)
+[![MELPA](http://melpa.org/packages/aurel-badge.svg)](http://melpa.org/#/aurel)
+[![MELPA Stable](http://stable.melpa.org/packages/aurel-badge.svg)](http://stable.melpa.org/#/aurel)
+
 ## About
 
 This is an Emacs package for searching, getting information and
