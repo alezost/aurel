@@ -493,6 +493,9 @@ Return non-nil, if ACTION was performed; return nil otherwise."
   :type 'string
   :group 'aurel)
 
+(defvar aurel-pacman-locale "en_US.UTF8"
+  "Default locale used to start pacman.")
+
 (defcustom aurel-installed-packages-check t
   "If non-nil, check if the found packages are installed.
 If nil, searching works faster, because `aurel-pacman-program' is not
@@ -524,7 +527,10 @@ Return numeric exit status."
     (with-current-buffer
         (or buffer (get-buffer-create aurel-pacman-buffer-name))
       (erase-buffer)
-      (apply 'call-process pacman nil t nil args))))
+      (let ((process-environment
+             (cons (concat "LANG=" aurel-pacman-locale)
+                   process-environment)))
+        (apply #'call-process pacman nil t nil args)))))
 
 (defun aurel-get-foreign-packages ()
   "Return list of names of installed foreign packages."
