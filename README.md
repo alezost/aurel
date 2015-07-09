@@ -291,6 +291,12 @@ Aurel with all modifications, described above:
 In both screenshots `alect-dark` theme from
 [alect-themes](https://github.com/alezost/alect-themes) is used.
 
+## Contributors
+
+The following people helped to improve this package:
+
+- Andrea De Michele: fixed the pacman localization issue.
+
 
 [aur]: https://aur.archlinux.org/
 [cower]: http://github.com/falconindy/cower
