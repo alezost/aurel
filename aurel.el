@@ -496,7 +496,8 @@ Return non-nil, if ACTION was performed; return nil otherwise."
 (defvar aurel-pacman-locale "en_US.UTF8"
   "Default locale used to start pacman.")
 
-(defcustom aurel-installed-packages-check t
+(defcustom aurel-installed-packages-check
+  (and aurel-pacman-program t)
   "If non-nil, check if the found packages are installed.
 If nil, searching works faster, because `aurel-pacman-program' is not
 called, but it stays unknown if a package is installed or not."
