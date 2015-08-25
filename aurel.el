@@ -605,6 +605,7 @@ Return alist with parameter names and values."
     (first-date  . "FirstSubmitted")
     (outdated    . "OutOfDate")
     (votes       . "NumVotes")
+    (popularity  . "Popularity")
     (license     . "License")
     (description . "Description")
     (category    . "CategoryID")
@@ -649,6 +650,7 @@ Cdr - is a parameter name (string) returned by pacman.")
     (first-date        . "Submitted")
     (outdated          . "Out Of Date")
     (votes             . "Votes")
+    (popularity        . "Popularity")
     (license           . "License")
     (description       . "Description")
     (category          . "Category")
@@ -2041,6 +2043,11 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   "Face used for a number of votes of a package."
   :group 'aurel-info)
 
+(defface aurel-info-popularity
+  '((t))
+  "Face used for popularity of a package."
+  :group 'aurel-info)
+
 (defface aurel-info-voted-mark
   '((t :inherit aurel-info-voted))
   "Face used for `aurel-info-voted-mark' string."
@@ -2218,6 +2225,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (category          . aurel-info-category)
     (license           . aurel-info-license)
     (votes             . aurel-info-insert-votes)
+    (popularity        . aurel-info-popularity)
     (first-date        . aurel-info-date)
     (last-date         . aurel-info-date)
     (install-date      . aurel-info-date)
@@ -2247,7 +2255,7 @@ it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
   '(id name version maintainer description home-url aur-url base-url
-    license category votes outdated first-date last-date)
+    license category votes popularity outdated first-date last-date)
   "List of parameters displayed in package info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
 The order of displayed parameters is the same as in this list.
