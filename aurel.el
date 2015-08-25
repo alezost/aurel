@@ -78,7 +78,7 @@
 (require 'url-handlers)
 (require 'json)
 (require 'tabulated-list)
-(require 'cl-macs)
+(require 'cl-lib)
 
 (defgroup aurel nil
   "Search and download AUR (Arch User Repository) packages."
@@ -1242,10 +1242,31 @@ Return a path to the downloaded file."
 ;; Avoid compilation warnings about tar functions and variables
 (defvar tar-parse-info)
 (defvar tar-data-buffer)
-(declare-function tar-data-swapped-p "tar-mode" ())
 (declare-function tar-untar-buffer "tar-mode" ())
 (declare-function tar-header-name "tar-mode" (tar-header) t)
 (declare-function tar-header-link-type "tar-mode" (tar-header) t)
+
+(defun aurel-tar-subdir (tar-info)
+  "Return directory name where files from TAR-INFO will be extracted."
+  (let* ((first-header (car tar-info))
+         (first-header-type (tar-header-link-type first-header)))
+    (cl-case first-header-type
+      (55                               ; pax_global_header
+       ;; There are other special headers (see `tar--check-descriptor', for
+       ;; example).  Should they also be ignored?
+       (aurel-tar-subdir (cdr tar-info)))
+      (5                                ; directory
+       (let* ((dir-name (tar-header-name first-header))
+              (dir-re (regexp-quote dir-name)))
+         (dolist (tar-data (cdr tar-info))
+           (or (string-match dir-re (tar-header-name tar-data))
+               (error (concat "Not all files are going to be extracted"
+                              " into directory '%s'")
+                      dir-name)))
+         dir-name))
+      (t
+       (error "The first entry '%s' in tar file is not a directory"
+              (tar-header-name first-header))))))
 
 (defun aurel-download-unpack (url dir)
   "Download AUR package from URL and unpack it into a directory DIR.
@@ -1263,18 +1284,7 @@ Return a path to the unpacked directory."
       (let ((file (expand-file-name (url-file-nondirectory url) dir)))
         (write-file file))
       (tar-mode)
-      ;; Make sure the first header is a dir and all files are
-      ;; placed in it (is it correct?)
-      (let* ((tar-car-data (car tar-parse-info))
-             (tar-dir (tar-header-name tar-car-data))
-             (tar-dir-re (regexp-quote tar-dir)))
-        (or (eq (tar-header-link-type tar-car-data) 5)
-            (error "The first entry '%s' in tar file is not a directory"
-                   tar-dir))
-        (dolist (tar-data (cdr tar-parse-info))
-          (or (string-match tar-dir-re (tar-header-name tar-data))
-              (error "Not all files are extracted into directory '%s'"
-                     tar-dir)))
+      (let ((tar-dir (aurel-tar-subdir tar-parse-info)))
         (tar-untar-buffer)
         (expand-file-name tar-dir dir)))))
 
