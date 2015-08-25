@@ -1,4 +1,4 @@
-;;; aurel.el --- Search, get info, vote and download AUR packages
+;;; aurel.el --- Search, get info, vote and download AUR packages   -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2014, 2015 Alex Kost
 
@@ -568,8 +568,7 @@ If BUFFER is nil, use `aurel-pacman-buffer-name'.
 Return list of alists with parameter names and values."
   (with-current-buffer
       (or buffer (get-buffer-create aurel-pacman-buffer-name))
-    (let ((max (point-max))
-          (beg (point-min))
+    (let ((beg (point-min))
           end info)
       ;; Packages info are separated with empty lines, search for those
       ;; till the end of buffer
@@ -1180,10 +1179,10 @@ ITEM should have the form of `aurel-history-stack-item'."
 A list of the form (FUNCTION [ARGS ...]).
 The action is performed by calling (apply FUNCTION ARGS).")
 
-(defun aurel-revert-buffer (ignore-auto noconfirm)
+(defun aurel-revert-buffer (_ignore-auto noconfirm)
   "Refresh information in the current aurel buffer.
 The function is suitable for `revert-buffer-function'.
-See `revert-buffer' for the meaning of IGNORE-AUTO and NOCONFIRM."
+See `revert-buffer' for the meaning of and NOCONFIRM."
   (when (or aurel-revert-no-confirm
             noconfirm
             (y-or-n-p "Refresh current information? "))
@@ -2377,13 +2376,13 @@ If `aurel-info-display-voted-mark' is non-nil, insert
               (format aurel-info-format ""))
       (aurel-info-insert-url (aurel-get-maintainer-account-url name)))))
 
-(defun aurel-info-insert-aur-url (url)
+(defun aurel-info-insert-aur-url (_)
   "Insert URL of the AUR package."
   (aurel-info-insert-url
    (aurel-get-aur-package-url
     (aurel-get-param-val 'name aurel-info))))
 
-(defun aurel-info-insert-base-url (url)
+(defun aurel-info-insert-base-url (_)
   "Insert URL of the AUR package base."
   (aurel-info-insert-url
    (aurel-get-package-base-url
