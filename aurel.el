@@ -741,8 +741,7 @@ Used in `aurel-filter-contains-every-string'.")
 
 (defvar aurel-aur-filters
   '(aurel-aur-filter-intern aurel-filter-contains-every-string
-    aurel-aur-filter-date aurel-filter-outdated
-    aurel-filter-category aurel-filter-pkg-url)
+    aurel-aur-filter-date aurel-filter-category aurel-filter-pkg-url)
   "List of filter functions applied to a package info got from AUR.
 
 Each filter function should accept a single argument - info alist
@@ -857,10 +856,14 @@ Return modified info."
 
 (defun aurel-aur-filter-date (info)
   "Convert date parameters PARAMS of a package INFO to time values.
-Converted parameters: `first-date', `last-date'.
+Converted parameters: `first-date', `last-date', `outdated'.
 INFO is alist of parameter symbols and values.
 Return modified info."
-  (aurel-filter-date info 'seconds-to-time 'first-date 'last-date))
+  (aurel-filter-date
+   info
+   (lambda (sec)
+     (and sec (seconds-to-time sec)))
+   'first-date 'last-date 'outdated))
 
 (defun aurel-pacman-filter-date (info)
   "Convert date parameters PARAMS of a package INFO to time values.
@@ -868,15 +871,6 @@ Converted parameters: `install-date', `build-date'.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (aurel-filter-date info 'date-to-time 'install-date 'build-date))
-
-(defun aurel-filter-outdated (info)
-  "Change `outdated' parameter of a package INFO.
-Replace 1/0 with t/nil.
-INFO is alist of parameter symbols and values.
-Return modified info."
-  (let ((param (assoc 'outdated info)))
-    (setcdr param (null (= 0 (cdr param)))))
-  info)
 
 (defun aurel-filter-category (info)
   "Replace category ID with category name in a package INFO.
@@ -2417,10 +2411,8 @@ If `aurel-info-display-voted-mark' is non-nil, insert
 
 (defun aurel-info-insert-boolean (val &optional t-face nil-face)
   "Insert boolean value VAL at point.
-If VAL is t, use T-FACE; if VAL is nil, use NIL-FACE.
-If VAL is not boolean, insert it as is."
-  (let ((face (and (booleanp val)
-                   (if val t-face nil-face))))
+If VAL is nil, use NIL-FACE, otherwise use T-FACE."
+  (let ((face (if val t-face nil-face)))
     (insert (aurel-get-string val face))))
 
 (defun aurel-info-insert-outdated (val)
