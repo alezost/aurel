@@ -54,11 +54,6 @@ Add the following lines to your `.emacs`.
   (setq aurel-download-directory "~/abs")
   ```
 
-### AUR
-
-If you prefer to install everything with pacman, there is
-[aurel](https://aur.archlinux.org/packages/aurel) package.
-
 ## Usage
 
 - Search for packages by name or description:
