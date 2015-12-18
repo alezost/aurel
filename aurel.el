@@ -493,7 +493,7 @@ Return non-nil, if ACTION was performed; return nil otherwise."
   :type 'string
   :group 'aurel)
 
-(defvar aurel-pacman-locale "en_US.UTF8"
+(defvar aurel-pacman-locale "C"
   "Default locale used to start pacman.")
 
 (defcustom aurel-installed-packages-check
