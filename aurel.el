@@ -527,7 +527,7 @@ Return numeric exit status."
       (or buffer (get-buffer-create aurel-pacman-buffer-name))
     (erase-buffer)
     (let ((process-environment
-           (cons (concat "LANG=" aurel-pacman-locale)
+           (cons (concat "LC_ALL=" aurel-pacman-locale)
                  process-environment)))
       (apply #'call-process aurel-pacman-program nil t nil args))))
 
