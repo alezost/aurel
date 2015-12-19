@@ -1785,18 +1785,19 @@ Same as `tabulated-list-sort', but also restore marks after sorting."
 
 ;;; Marking packages
 
+(defun aurel-list-marked-p (id)
+  "Return non-nil, if a package with ID is marked."
+  (assq id aurel-list-marks))
+
 (defun aurel-list-mark ()
   "Mark a package for downloading and move to the next line."
   (interactive)
   (let ((id (tabulated-list-get-id)))
-    (when id
-      (let ((beg (line-beginning-position))
-            (end (line-end-position)))
-        (unless (overlays-at beg)
-          (let ((overlay (make-overlay beg end)))
-            (overlay-put overlay 'face 'aurel-list-marked)
-            (add-to-list 'aurel-list-marks
-                         (cons id overlay))))))
+    (when (and id (not (aurel-list-marked-p id)))
+      (let ((overlay (make-overlay (line-beginning-position)
+                                   (line-end-position))))
+        (overlay-put overlay 'face 'aurel-list-marked)
+        (push (cons id overlay) aurel-list-marks)))
     (forward-line)))
 
 (defun aurel-list-mark-packages (ids)
