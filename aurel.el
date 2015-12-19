@@ -222,16 +222,13 @@ Otherwise, throw an error or return nil, if NOERROR is nil."
 (defun aurel-receive-parse-info (url)
   "Return received output from URL processed with `json-read'."
   (aurel-debug 3 "Retrieving %s" url)
-  (let ((buf (url-retrieve-synchronously url)))
-    (aurel-check-response-status buf)
-    (with-current-buffer buf
-      (goto-char (point-min))
-      (re-search-forward "^{") ;; is there a better way?
-      (beginning-of-line)
-      (let ((json-key-type 'string)
-            (json-array-type 'list)
-            (json-object-type 'alist))
-        (json-read)))))
+  (with-temp-buffer
+    (url-insert-file-contents url)
+    (goto-char (point-min))
+    (let ((json-key-type 'string)
+          (json-array-type 'list)
+          (json-object-type 'alist))
+      (json-read))))
 
 (defun aurel-get-aur-packages-info (url)
   "Return information about the packages from URL.
