@@ -253,9 +253,10 @@ Returning value is alist of AUR package parameters (strings from
         (setq results (list results)))
       results))))
 
-;; Because of the bug #16960, we can't use `url-retrieve-synchronously'
-;; (or any other simple call of `url-retrieve', as the callback is never
-;; called) to login to <https://aur.archlinux.org>.  So we use
+;; Because of the bug <http://bugs.gnu.org/16960>, we can't use
+;; `url-retrieve-synchronously' (or any other simple call of
+;; `url-retrieve', as the callback is never called) to login to
+;; <https://aur.archlinux.org>.  So we use
 ;; `aurel-url-retrieve-synchronously' - it is almost the same, except it
 ;; can exit from the waiting loop when a buffer with received data
 ;; appears in `url-dead-buffer-list'.  This hack is currently possible,
