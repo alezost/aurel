@@ -7,6 +7,7 @@
 ;; Version: 0.7
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
+;; Package-Requires: ((emacs "24.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
