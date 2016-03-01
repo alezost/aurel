@@ -123,7 +123,8 @@ voted for the package or subscribed to receive comments)."
   "String used if a value of the parameter is unknown.")
 
 (defvar aurel-none-string "None"
-  "String saying that a parameter has no value.")
+  "String saying that a parameter has no value.
+This string can be displayed by pacman.")
 
 (defvar aurel-package-name-re
   "[-+_[:alnum:]]+"
@@ -143,21 +144,20 @@ Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
   (if (equal val aurel-none-string)
       aurel-empty-string
-    (setq val
-          (cond
-           ((stringp val) val)
-           ((null val) aurel-false-string)
-           ((eq t val) aurel-true-string)
-           ((numberp val) (number-to-string val))
-           ((aurel-time-p val)
-            (format-time-string aurel-date-format val))
-           ((listp val)
-            (mapconcat #'aurel-get-string
-                       val aurel-list-separator))
-           (t (prin1-to-string val))))
-    (if face
-        (propertize val 'face face)
-      val)))
+    (let ((str (cond
+                ((stringp val) val)
+                ((null val) aurel-false-string)
+                ((eq t val) aurel-true-string)
+                ((numberp val) (number-to-string val))
+                ((aurel-time-p val)
+                 (format-time-string aurel-date-format val))
+                ((listp val)
+                 (mapconcat #'aurel-get-string
+                            val aurel-list-separator))
+                (t (prin1-to-string val)))))
+      (if (and val face)
+          (propertize str 'face face)
+        str))))
 
 (defun aurel-time-p (val)
   "Return non-nil, if VAL is a time value; return nil otherwise."
