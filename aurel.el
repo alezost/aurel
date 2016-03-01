@@ -619,7 +619,12 @@ Return alist with parameter names and values."
     (id          . "ID")
     (base-name   . "PackageBase")
     (base-id     . "PackageBaseID")
-    (maintainer  . "Maintainer"))
+    (maintainer  . "Maintainer")
+    (replaces    . "Replaces")
+    (provides    . "Provides")
+    (conflicts   . "Conflicts")
+    (depends     . "Depends")
+    (depends-make . "MakeDepends"))
   "Association list of symbols and names of package info parameters.
 Car of each assoc is a symbol used in code of this package.
 Cdr - is a parameter name (string) returned by the AUR server.")
@@ -670,6 +675,7 @@ Cdr - is a parameter name (string) returned by pacman.")
     (architecture      . "Architecture")
     (provides          . "Provides")
     (depends           . "Depends On")
+    (depends-make      . "Make Deps")
     (depends-opt       . "Optional Deps")
     (script            . "Install Script")
     (reason            . "Install Reason")
@@ -2091,6 +2097,11 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   "Face used for 'Depends On' parameter."
   :group 'aurel-info)
 
+(defface aurel-info-depends-make
+  '((t))
+  "Face used for 'Make Deps' parameter."
+  :group 'aurel-info)
+
 (defface aurel-info-depends-opt
   '((t :inherit aurel-info-depends))
   "Face used for 'Optional Deps' parameter."
@@ -2209,6 +2220,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (replaces          . aurel-info-replaces)
     (conflicts         . aurel-info-conflicts)
     (depends           . aurel-info-depends)
+    (depends-make      . aurel-info-depends-make)
     (depends-opt       . aurel-info-depends-opt)
     (required          . aurel-info-required)
     (optional-for      . aurel-info-optional-for)
@@ -2221,6 +2233,7 @@ it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
   '(name version maintainer description home-url aur-url base-url
+    provides depends-make depends conflicts replaces
     license keywords votes popularity outdated first-date last-date)
   "List of parameters displayed in package info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
