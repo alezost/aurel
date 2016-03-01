@@ -2135,8 +2135,11 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   :type 'string
   :group 'aurel-info)
 
-(defcustom aurel-info-ignore-empty-vals nil
-  "If non-nil, do not display empty values of package parameters."
+(defcustom aurel-info-ignore-empty-vals t
+  "If nil, display empty values of package parameters.
+Empty means non-existing (as returned by AUR API) or 'None' (as
+returned by pacman) values.
+See also `aurel-empty-string'."
   :type 'boolean
   :group 'aurel-info)
 
