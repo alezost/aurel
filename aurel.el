@@ -958,18 +958,10 @@ INFO is a filtered package info."
                 info-list)))
 
 (defun aurel-get-packages-by-name-or-id (&rest names)
-  "Return packages by NAMES.
-Each element from NAMES should be a string.  If there is only one
-element, it can also be a number (package ID).
+  "Return packages by package NAMES (list of strings).
 Returning value has a form of `aurel-list'."
   (aurel-receive-packages-info
-   ;; AUR RPC service do not support specifying multiple packages by IDs
-   ;; (only by names), so we can't use `aurel-get-package-multiinfo-url'
-   ;; as a common case: if there is only one requested package, it can
-   ;; be either a name or ID.
-   (if (cdr names)
-       (aurel-get-package-multiinfo-url names)
-     (aurel-get-package-info-url (car names)))))
+   (apply #'aurel-get-package-info-url names)))
 
 (defun aurel-get-packages-by-string (&rest strings)
   "Return packages matching STRINGS.
@@ -1326,53 +1318,44 @@ Returning string has a form: \"NAME=VALUE&...\"."
                     (url-hexify-string
                      (if (stringp arg) arg (prin1-to-string arg)))))
     (mapconcat (lambda (arg)
-                 (concat (hexify (car arg))
+                 (concat (car arg)
                          "="
                          (hexify (cdr arg))))
                args
                "&")))
 
-(defun aurel-get-multi-args-rpc-url (type args &optional type-name arg-name)
+(defun aurel-get-rpc-url (type args)
   "Return URL for getting info about AUR packages.
 TYPE is the name of an allowed method.
-ARGS is a list of arguments to the call.
-TYPE-NAME is the name of a type field (\"type\" by default).
-ARG-NAME is the name of an arg field (\"arg[]\" by default)."
-  (or type-name
-      (setq type-name "type"))
-  (or arg-name
-      (setq arg-name "arg[]"))
-  (let ((fields (cons
-                 (cons type-name type)
-                 (mapcar (lambda (arg) (cons arg-name arg))
-                         args))))
-    (url-expand-file-name
-     (concat "rpc.php?" (aurel-get-fields-string fields))
-     aurel-aur-base-url)))
+ARGS should have a form taken by `aurel-get-fields-string'."
+  (url-expand-file-name
+   (concat "rpc/?"
+           (aurel-get-fields-string
+            (append `(("v" . "5") ; v5 of the RPC API.
+                      ("type" . ,type))
+                    args)))
+   aurel-aur-base-url))
 
-(defun aurel-get-rpc-url (type arg)
-  "Return URL for getting info about AUR packages.
-TYPE is the name of an allowed method.
-ARG is the argument to the call."
-  (aurel-get-multi-args-rpc-url type (list arg) "type" "arg"))
+(defun aurel-get-package-info-url (&rest names)
+  "Return URL for getting info about packages with NAMES."
+  (let ((args (mapcar (lambda (name)
+                        (cons "arg[]" name))
+                      names)))
+    (aurel-get-rpc-url "info" args)))
 
-(defun aurel-get-package-multiinfo-url (packages)
-  "Return URL for getting info about PACKAGES.
-Each package should be a string (package name)."
-  (aurel-get-multi-args-rpc-url "multiinfo" packages))
-
-(defun aurel-get-package-info-url (package)
-  "Return URL for getting info about a PACKAGE.
-PACKAGE can be either a string (name) or a number (ID)."
-  (aurel-get-rpc-url "info" package))
-
-(defun aurel-get-package-search-url (str)
-  "Return URL for searching a package by string STR."
-  (aurel-get-rpc-url "search" str))
+(defun aurel-get-package-search-url (str &optional field)
+  "Return URL for searching a package by string STR.
+FIELD is a field (string) for searching.  May be: 'name',
+'name-desc' (default) or 'maintainer'."
+  (or field (setq field "name-desc"))
+  (aurel-get-rpc-url
+   "search"
+   `(("by" . ,field)
+     ("arg" . ,str))))
 
 (defun aurel-get-maintainer-search-url (str)
   "Return URL for searching a maintainer by string STR."
-  (aurel-get-rpc-url "msearch" str))
+  (aurel-get-package-search-url str "maintainer"))
 
 (defun aurel-get-maintainer-account-url (maintainer)
   "Return URL for MAINTAINER's AUR account."
