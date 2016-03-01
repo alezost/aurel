@@ -957,7 +957,7 @@ INFO is a filtered package info."
                          (cons (aurel-get-param-val param info) info))))
                 info-list)))
 
-(defun aurel-get-packages-by-name-or-id (&rest names)
+(defun aurel-get-packages-by-name (&rest names)
   "Return packages by package NAMES (list of strings).
 Returning value has a form of `aurel-list'."
   (aurel-receive-packages-info
@@ -986,7 +986,7 @@ Returning value has a form of `aurel-list'."
    (aurel-get-maintainer-search-url name)))
 
 (defvar aurel-search-type-alist
-  '((name-or-id . aurel-get-packages-by-name-or-id)
+  '((name       . aurel-get-packages-by-name)
     (string     . aurel-get-packages-by-string)
     (maintainer . aurel-get-packages-by-maintainer))
   "Alist of available search types and search functions.")
@@ -1033,7 +1033,7 @@ details."
   (let ((count (length packages)))
     (when (> count 0)
       (if (and (= count 1)
-               (or (eq search-type 'name-or-id)
+               (or (eq search-type 'name)
                    (null aurel-list-single-package)))
           (let ((info (cdar packages)))
             ;; Add (maybe) AUR user info if the buffer is reverted or a
@@ -1062,7 +1062,7 @@ details."
     (aurel-found-message packages search-type search-vals)))
 
 (defvar aurel-found-messages
-  '((name-or-id (0    "The package \"%s\" not found." "Packages not found.")
+  '((name       (0    "The package \"%s\" not found." "Packages not found.")
                 (1    "The package \"%s\"."))
     (string     (0    "No packages matching %s.")
                 (1    "A single package matching %s.")
@@ -1091,7 +1091,7 @@ SEARCH-TYPE and SEARCH-VALS are arguments for
                        ((eq search-type 'string)
                         (mapconcat (lambda (str) (concat "\"" str "\""))
                                    search-vals " "))
-                       ((and (= count 1) (eq search-type 'name-or-id))
+                       ((and (= count 1) (eq search-type 'name))
                         (aurel-get-param-val 'name (cdar packages)))
                        (t (car search-vals)))))))
     (and msg (apply 'message msg args))))
@@ -1390,17 +1390,15 @@ FIELD is a field (string) for searching.  May be: 'name',
   "A history list for `aurel-maintainer-search'.")
 
 ;;;###autoload
-(defun aurel-package-info (name-or-id &optional arg)
-  "Display information about AUR package NAME-OR-ID.
-NAME-OR-ID may be a string or a number.
+(defun aurel-package-info (name &optional arg)
+  "Display information about AUR package with NAME.
 The buffer for showing results is defined by `aurel-info-buffer-name'.
 With prefix (if ARG is non-nil), show results in a new info buffer."
   (interactive
-   (list (read-string "Name or ID: "
+   (list (read-string "Name: "
                       nil 'aurel-package-info-history)
          current-prefix-arg))
-  (aurel-search-show-packages
-   'name-or-id (list name-or-id) arg 'add))
+  (aurel-search-show-packages 'name (list name) arg 'add))
 
 ;;;###autoload
 (defun aurel-package-search (string &optional arg)
@@ -1441,7 +1439,7 @@ The buffer for showing results is defined by `aurel-list-buffer-name'.
 With prefix (if ARG is non-nil), show results in a new buffer."
   (interactive "P")
   (aurel-search-show-packages
-   'name-or-id (aurel-get-foreign-packages) arg 'add))
+   'name (aurel-get-foreign-packages) arg 'add))
 
 
 ;;; Package list
@@ -1726,8 +1724,9 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
   (interactive "P")
   (let* ((id (aurel-list-get-current-id))
          (info (aurel-list-get-package-info id))
+         (name (aurel-get-param-val 'name info))
          (list (list (cons id info))))
-    (aurel-show-packages list arg 'add 'name-or-id (list id))))
+    (aurel-show-packages list arg 'add 'name (list name))))
 
 (defun aurel-list-download-package ()
   "Download marked packages or the current package if nothing is marked.
