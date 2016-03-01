@@ -2339,21 +2339,26 @@ INFO should have the form of `aurel-info'."
 Each element from PARAMS is a parameter to insert (symbol from
 `aurel-param-description-alist')."
   (mapc (lambda (param)
-          (aurel-info-print-param
-           param (aurel-get-param-val param info)))
+          (aurel-info-print-param info param))
         params))
 
-(defun aurel-info-print-param (param val)
-  "Insert description and value VAL of a parameter PARAM at point.
+(defun aurel-info-print-param (info param)
+  "Insert description and value of an INFO parameter PARAM at point.
 PARAM is a symbol from `aurel-param-description-alist'.
 Use `aurel-info-format' to format descriptions of parameters."
-  (unless (and aurel-info-ignore-empty-vals
-               (equal val aurel-none-string))
-    (let ((desc (aurel-get-param-description param))
-          (insert-val (cdr (assoc param
-                                  aurel-info-insert-params-alist))))
-      (insert (format aurel-info-format desc))
-      (if (functionp insert-val)
+  (let* ((param-assq (assq param info))
+         (val (if param-assq
+                  (cdr param-assq)
+                aurel-none-string))
+         (insert-val (cdr (assq param aurel-info-insert-params-alist)))
+         (insert-fun? (functionp insert-val)))
+    (unless (and aurel-info-ignore-empty-vals
+                 (not insert-fun?)
+                 (or (null param-assq)
+                     (equal val aurel-none-string)))
+      (insert (format aurel-info-format
+                      (aurel-get-param-description param)))
+      (if insert-fun?
           (funcall insert-val val)
         (aurel-info-insert-val
          val (and (facep insert-val) insert-val)))
