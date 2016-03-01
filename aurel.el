@@ -129,6 +129,8 @@ voted for the package or subscribed to receive comments)."
   "[-+_[:alnum:]]+"
   "Regexp matching a valid package name.")
 
+(defvar aurel-list-separator ", ")
+
 (defun aurel-get-string (val &optional face)
   "Return string from VAL.
 If VAL is `aurel-none-string' return `aurel-empty-string'.
@@ -136,6 +138,7 @@ If VAL is nil, return `aurel-false-string'.
 If VAL is t, return `aurel-true-string'.
 If VAL is a number, use `number-to-string'.
 If VAL is a time value, format it with `aurel-date-format'.
+If VAL is a list, separate its values with `aurel-list-separator'.
 Otherwise, if VAL is not string, use `prin1-to-string'.
 If FACE is non-nil, propertize returned string with this FACE."
   (if (equal val aurel-none-string)
@@ -148,6 +151,9 @@ If FACE is non-nil, propertize returned string with this FACE."
            ((numberp val) (number-to-string val))
            ((aurel-time-p val)
             (format-time-string aurel-date-format val))
+           ((listp val)
+            (mapconcat #'aurel-get-string
+                       val aurel-list-separator))
            (t (prin1-to-string val))))
     (if face
         (propertize val 'face face)
