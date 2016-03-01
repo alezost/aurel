@@ -1,6 +1,6 @@
 ;;; aurel.el --- Search, get info, vote and download AUR packages   -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014, 2015 Alex Kost
+;; Copyright (C) 2014, 2015, 2016 Alex Kost
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
@@ -633,16 +633,16 @@ Cdr - is a parameter name (string) returned by the AUR server.")
   '((installed-name    . "Name")
     (installed-version . "Version")
     (architecture      . "Architecture")
-    (provides          . "Provides")
-    (depends           . "Depends On")
+    (installed-provides . "Provides")
+    (installed-depends . "Depends On")
     (depends-opt       . "Optional Deps")
     (script            . "Install Script")
     (reason            . "Install Reason")
     (validated         . "Validated By")
     (required          . "Required By")
     (optional-for      . "Optional For")
-    (conflicts         . "Conflicts With")
-    (replaces          . "Replaces")
+    (installed-conflicts . "Conflicts With")
+    (installed-replaces . "Replaces")
     (installed-size    . "Installed Size")
     (packager          . "Packager")
     (build-date        . "Build Date")
@@ -672,6 +672,10 @@ Cdr - is a parameter name (string) returned by pacman.")
     (maintainer        . "Maintainer")
     (installed-name    . "Name")
     (installed-version . "Version")
+    (installed-provides . "Provides")
+    (installed-depends . "Depends On")
+    (installed-conflicts . "Conflicts With")
+    (installed-replaces . "Replaces")
     (architecture      . "Architecture")
     (provides          . "Provides")
     (depends           . "Depends On")
@@ -2221,9 +2225,13 @@ It is inserted after printing info from AUR and before info from pacman."
     (base-url          . aurel-info-insert-base-url)
     (architecture      . aurel-info-architecture)
     (provides          . aurel-info-provides)
+    (installed-provides . aurel-info-provides)
     (replaces          . aurel-info-replaces)
+    (installed-replaces . aurel-info-replaces)
     (conflicts         . aurel-info-conflicts)
+    (installed-conflicts . aurel-info-conflicts)
     (depends           . aurel-info-depends)
+    (installed-depends . aurel-info-depends)
     (depends-make      . aurel-info-depends-make)
     (depends-opt       . aurel-info-depends-opt)
     (required          . aurel-info-required)
@@ -2245,8 +2253,9 @@ The order of displayed parameters is the same as in this list.
 If nil, display all parameters with no particular order.")
 
 (defvar aurel-info-installed-parameters
-  '(installed-version architecture installed-size provides depends
-    depends-opt required optional-for conflicts replaces packager
+  '(installed-version architecture installed-size installed-provides
+    installed-depends depends-opt required optional-for
+    installed-conflicts installed-replaces packager
     build-date install-date script validated)
   "List of parameters of an installed package displayed in info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
