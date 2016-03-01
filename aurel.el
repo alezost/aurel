@@ -2254,7 +2254,7 @@ symbol is a face name, it is used for the value; if it is a function,
 it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
-  '(id name version maintainer description home-url aur-url base-url
+  '(name version maintainer description home-url aur-url base-url
     license category votes popularity outdated first-date last-date)
   "List of parameters displayed in package info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
