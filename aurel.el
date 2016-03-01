@@ -613,7 +613,7 @@ Return alist with parameter names and values."
     (popularity  . "Popularity")
     (license     . "License")
     (description . "Description")
-    (category    . "CategoryID")
+    (keywords    . "Keywords")
     (version     . "Version")
     (name        . "Name")
     (id          . "ID")
@@ -658,7 +658,7 @@ Cdr - is a parameter name (string) returned by pacman.")
     (popularity        . "Popularity")
     (license           . "License")
     (description       . "Description")
-    (category          . "Category")
+    (keywords          . "Keywords")
     (version           . "Version")
     (name              . "Name")
     (id                . "ID")
@@ -728,14 +728,6 @@ PARAM-NAME is a string from `aurel-pacman-param-alist'."
 
 ;;; Filters for processing package info
 
-(defvar aurel-categories
-  [nil "None" "daemons" "devel" "editors"
-       "emulators" "games" "gnome" "i18n" "kde" "lib"
-       "modules" "multimedia" "network" "office"
-       "science" "system" "x11" "xfce" "kernels" "fonts"]
-  "Vector of package categories.
-Index of an element is a category ID.")
-
 (defvar aurel-filter-params nil
   "List of parameters (symbols), that should match specified strings.
 Used in `aurel-filter-contains-every-string'.")
@@ -746,7 +738,7 @@ Used in `aurel-filter-contains-every-string'.")
 
 (defvar aurel-aur-filters
   '(aurel-aur-filter-intern aurel-filter-contains-every-string
-    aurel-aur-filter-date aurel-filter-category aurel-filter-pkg-url)
+    aurel-aur-filter-date aurel-filter-pkg-url)
   "List of filter functions applied to a package info got from AUR.
 
 Each filter function should accept a single argument - info alist
@@ -876,14 +868,6 @@ Converted parameters: `install-date', `build-date'.
 INFO is alist of parameter symbols and values.
 Return modified info."
   (aurel-filter-date info 'date-to-time 'install-date 'build-date))
-
-(defun aurel-filter-category (info)
-  "Replace category ID with category name in a package INFO.
-INFO is alist of parameter symbols and values.
-Return modified info."
-  (let ((param (assoc 'category info)))
-    (setcdr param (aref aurel-categories (cdr param))))
-  info)
 
 (defun aurel-filter-pkg-url (info)
   "Update `pkg-url' parameter in a package INFO.
@@ -2005,9 +1989,9 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   "Face used for a version of a package."
   :group 'aurel-info)
 
-(defface aurel-info-category
+(defface aurel-info-keywords
   '((t :inherit font-lock-comment-face))
-  "Face used for a category of a package."
+  "Face used for keywords of a package."
   :group 'aurel-info)
 
 (defface aurel-info-description
@@ -2204,7 +2188,7 @@ It is inserted after printing info from AUR and before info from pacman."
     (maintainer        . aurel-info-insert-maintainer)
     (version           . aurel-info-version)
     (installed-version . aurel-info-version)
-    (category          . aurel-info-category)
+    (keywords          . aurel-info-keywords)
     (license           . aurel-info-license)
     (votes             . aurel-info-insert-votes)
     (popularity        . aurel-info-popularity)
@@ -2237,7 +2221,7 @@ it is called with the value of the parameter.")
 
 (defvar aurel-info-parameters
   '(name version maintainer description home-url aur-url base-url
-    license category votes popularity outdated first-date last-date)
+    license keywords votes popularity outdated first-date last-date)
   "List of parameters displayed in package info buffer.
 Each parameter should be a symbol from `aurel-param-description-alist'.
 The order of displayed parameters is the same as in this list.
