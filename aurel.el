@@ -1714,9 +1714,13 @@ With prefix (if ARG is non-nil), show results in a new info buffer."
   (interactive "P")
   (let* ((id (aurel-list-get-current-id))
          (info (aurel-list-get-package-info id))
-         (name (aurel-get-param-val 'name info))
-         (list (list (cons id info))))
-    (aurel-show-packages list arg 'add 'name (list name))))
+         (name (aurel-get-param-val 'name info)))
+    ;; A list of packages is received using 'search' type.  However, in
+    ;; AUR RPC API, 'info' type returns several additional parameters
+    ;; ("Depends", "Replaces", ...) comparing to 'search' type.  So
+    ;; using just `aurel-show-packages' is not enough, and re-receiving
+    ;; a package info (using 'info' type this time) is needed.
+    (aurel-search-show-packages 'name (list name) arg 'add)))
 
 (defun aurel-list-download-package ()
   "Download marked packages or the current package if nothing is marked.
