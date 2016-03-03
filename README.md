@@ -44,6 +44,7 @@ Add the following lines to your `.emacs`.
   ```elisp
   (autoload 'aurel-package-info "aurel" nil t)
   (autoload 'aurel-package-search "aurel" nil t)
+  (autoload 'aurel-package-search-by-name "aurel" nil t)
   (autoload 'aurel-maintainer-search "aurel" nil t)
   (autoload 'aurel-installed-packages "aurel" nil t)
   ```
@@ -69,11 +70,16 @@ Add the following lines to your `.emacs`.
   + `"python library" xml`
   + `light weight "programming language"`
 
+- Search for packages only by name (i.e., only packages with names that
+  contain a searched string will be displayed):
+
+  `M-x aurel-package-search-by-name`
+
 - Search for packages by maintainer:
 
   `M-x aurel-maintainer-search`
 
-- Get an information about a package by exact name or ID:
+- Get an information about a package by exact name:
 
   `M-x aurel-package-info`
 

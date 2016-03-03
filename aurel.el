@@ -33,6 +33,7 @@
 ;;   (add-to-list 'load-path "/path/to/aurel-dir")
 ;;   (autoload 'aurel-package-info "aurel" nil t)
 ;;   (autoload 'aurel-package-search "aurel" nil t)
+;;   (autoload 'aurel-package-search-by-name "aurel" nil t)
 ;;   (autoload 'aurel-maintainer-search "aurel" nil t)
 ;;   (autoload 'aurel-installed-packages "aurel" nil t)
 
@@ -973,6 +974,12 @@ Returning value has a form of `aurel-list'."
     (aurel-receive-packages-info
      (aurel-get-package-search-url (car str-list)))))
 
+(defun aurel-get-packages-by-name-string (string)
+  "Return packages with name containing STRING.
+Returning value has a form of `aurel-list'."
+  (aurel-receive-packages-info
+   (aurel-get-package-name-search-url string)))
+
 (defun aurel-get-packages-by-maintainer (name)
   "Return packages by maintainer NAME.
 Returning value has a form of `aurel-list'."
@@ -982,6 +989,7 @@ Returning value has a form of `aurel-list'."
 (defvar aurel-search-type-alist
   '((name       . aurel-get-packages-by-name)
     (string     . aurel-get-packages-by-string)
+    (name-string . aurel-get-packages-by-name-string)
     (maintainer . aurel-get-packages-by-maintainer))
   "Alist of available search types and search functions.")
 
@@ -1347,6 +1355,10 @@ FIELD is a field (string) for searching.  May be: 'name',
    `(("by" . ,field)
      ("arg" . ,str))))
 
+(defun aurel-get-package-name-search-url (str)
+  "Return URL for searching a package name by string STR."
+  (aurel-get-package-search-url str "name"))
+
 (defun aurel-get-maintainer-search-url (str)
   "Return URL for searching a maintainer by string STR."
   (aurel-get-package-search-url str "maintainer"))
@@ -1413,6 +1425,20 @@ results in a new buffer."
          current-prefix-arg))
   (aurel-search-show-packages
    'string (split-string-and-unquote string) arg 'add))
+
+;;;###autoload
+(defun aurel-package-search-by-name (string &optional arg)
+  "Search for AUR packages with name containing STRING.
+
+The buffer for showing results is defined by
+`aurel-list-buffer-name'.  With prefix (if ARG is non-nil), show
+results in a new buffer."
+  (interactive
+   (list (read-string "Search by name: "
+                      nil 'aurel-package-search-history)
+         current-prefix-arg))
+  (aurel-search-show-packages
+   'name-string (list string) arg 'add))
 
 ;;;###autoload
 (defun aurel-maintainer-search (name &optional arg)
