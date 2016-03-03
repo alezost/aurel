@@ -1518,6 +1518,7 @@ If no parameter is not found in this alist, the value from
 (defvar aurel-list-column-value-alist
   '((name              . aurel-list-get-name)
     (maintainer        . aurel-list-get-maintainer)
+    (popularity        . aurel-list-get-popularity)
     (installed-version . aurel-list-get-installed-version))
   "Alist for parameter values inserted in columns.
 Each association is a cons of parameter symbol from
@@ -1566,6 +1567,7 @@ to highlight a line with this package.")
     ;; strings, e.g.: (1, 13, 2, 200, 3) instead of (1, 2, 3, 13, 200).
     ;; So we use a special function to compare votes as numbers.
     (votes 8 aurel-list-sort-by-votes)
+    (popularity 12 t)
     (description 30 nil))
   "List specifying columns used in the buffer with a list of packages.
 Each element of the list should have the form (NAME WIDTH SORT . PROPS).
@@ -1720,6 +1722,12 @@ out of date."
   "Return maintainer name from a package INFO."
   (or (aurel-get-param-val 'maintainer info)
       aurel-empty-string))
+
+(defun aurel-list-get-popularity (info)
+  "Return popularity from a package INFO."
+  ;; Display popularity in a decimal-point notation to avoid things like
+  ;; "9.6e-05".
+  (format "%10.4f" (aurel-get-param-val 'popularity info)))
 
 (defun aurel-list-get-installed-version (info)
   "Return installed version from a package INFO."
