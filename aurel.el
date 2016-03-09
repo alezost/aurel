@@ -4,7 +4,7 @@
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
-;; Version: 0.7
+;; Version: 0.8
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
 ;; Package-Requires: ((emacs "24.3"))
