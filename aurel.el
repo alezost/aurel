@@ -1473,7 +1473,7 @@ With prefix (if ARG is non-nil), show results in a new buffer."
   "Face used for the marked packages."
   :group 'aurel-list)
 
-(defcustom aurel-list-buffer-name "*AUR Package List*"
+(defcustom aurel-list-buffer-name "*AUR Packages*"
   "Default name of the buffer with a list of AUR packages."
   :type 'string
   :group 'aurel-list)
