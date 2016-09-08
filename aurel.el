@@ -1213,6 +1213,14 @@ performed."
     aurel-download-unpack-pkgbuild aurel-download-unpack-eshell)
   "List of available download functions.")
 
+(defun aurel-read-download-directory ()
+  "Return `aurel-download-directory' or prompt for it.
+This function is intended for using in `interactive' forms."
+  (if current-prefix-arg
+      (read-directory-name aurel-directory-prompt
+                           aurel-download-directory)
+    aurel-download-directory))
+
 (defun aurel-download-get-defcustom-type ()
   "Return `defcustom' type for selecting a download function."
   `(radio ,@(mapcar (lambda (fun) (list 'function-item fun))
@@ -1770,12 +1778,7 @@ to save the package; without prefix, save to
 Use `aurel-list-download-function' if a single package is
 downloaded or `aurel-list-multi-download-function' otherwise."
   (interactive)
-  (or (derived-mode-p 'aurel-list-mode)
-      (user-error "Current buffer is not in aurel-list-mode"))
-  (let ((dir (if current-prefix-arg
-                 (read-directory-name aurel-directory-prompt
-                                      aurel-download-directory)
-               aurel-download-directory))
+  (let ((dir (aurel-read-download-directory))
         (count (length aurel-list-marks))
         (ids (mapcar #'car aurel-list-marks)))
     (if (> count 1)
@@ -2508,21 +2511,16 @@ If FACE is non-nil, propertize inserted line(s) with this FACE."
 (defun aurel-info-download-package ()
   "Download current package.
 
+(defun aurel-info-download-package (url dir)
+  "Download package URL to DIR using `aurel-info-download-function'.
+Interactively, download the current package.
 With prefix, prompt for a directory with `aurel-directory-prompt'
 to save the package; without prefix, save to
-`aurel-download-directory' without prompting.
-
-Use `aurel-info-download-function'."
-  (interactive)
-  (or (derived-mode-p 'aurel-info-mode)
-      (user-error "Current buffer is not in aurel-info-mode"))
-  (let ((dir (if current-prefix-arg
-                 (read-directory-name aurel-directory-prompt
-                                      aurel-download-directory)
-               aurel-download-directory)))
-    (funcall aurel-info-download-function
-             (aurel-get-param-val 'pkg-url aurel-info)
-             dir)))
+`aurel-download-directory' without prompting."
+  (interactive
+   (list (aurel-get-param-val 'pkg-url aurel-info)
+         (aurel-read-download-directory)))
+  (funcall aurel-info-download-function url dir))
 
 (defun aurel-info-aur-user-action (action &optional norevert)
   "Perform AUR user ACTION on the current package.
