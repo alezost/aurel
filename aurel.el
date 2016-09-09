@@ -1,4 +1,4 @@
-;;; aurel.el --- Search, get info, vote and download AUR packages   -*- lexical-binding: t -*-
+;;; aurel.el --- Search, get info, vote for and download AUR packages  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2014, 2015, 2016 Alex Kost
 
@@ -13,19 +13,19 @@
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
-
+;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
-;; The package provides an interface for searching, getting information,
-;; voting, subscribing and downloading packages from the Arch User
+;; This package provides an interface for searching, getting information,
+;; voting for, subscribing and downloading packages from the Arch User
 ;; Repository (AUR) <https://aur.archlinux.org/>.
 
 ;; To manually install the package, add the following to your init-file:
@@ -64,7 +64,7 @@
 ;; find what packages are installed.  To disable that, set
 ;; `aurel-installed-packages-check' to nil.
 
-;; To vote/subscribe for a package, press "v"/"s" (with prefix
+;; To vote/subscribe for a package, press "v"/"s" (with prefix,
 ;; unvote/unsubscribe) in a package info buffer (you should have an AUR
 ;; account for that).  To add information about "Voted"/"Subscribed"
 ;; status, use the following:
@@ -83,7 +83,7 @@
 (require 'cl-lib)
 
 (defgroup aurel nil
-  "Search and download AUR (Arch User Repository) packages."
+  "Search for and download AUR (Arch User Repository) packages."
   :group 'applications)
 
 (defcustom aurel-empty-string "-"

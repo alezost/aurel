@@ -9,12 +9,12 @@ downloading AUR ([Arch User Repository][aur]) packages.  Its
 functionality is very similar to the one provided by [cower][cower], but
 instead of the command-line interface you use Emacs interface.
 
-Also you can use it for (un)voting for packages and (un)subscribing for
+Also you can use it to (un)vote for packages and to (un)subscribe for
 package comments (see [AUR account actions](#aur-account-actions)),
 i.e. it may be a substitution for [aurvote][aurvote] and
 [aurnotify][aurnotify].
 
-The package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
+This package uses [AurJson](https://wiki.archlinux.org/index.php/AurJson)
 RPC interface to get information about AUR packages.
 
 You may look at the [screenshots](#screenshots) below or at the
