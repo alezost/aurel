@@ -2229,7 +2229,7 @@ It is inserted after printing info from AUR and before info from pacman."
   :group 'aurel-info)
 
 (defcustom aurel-info-aur-user-string
-  "\n"
+  "\nAUR user account info:\n\n"
   "String inserted before printing info specific for AUR user."
   :type 'string
   :group 'aurel-info)
