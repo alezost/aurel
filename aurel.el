@@ -2162,6 +2162,21 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   "Face used for 'Optional For' parameter."
   :group 'aurel-info)
 
+(defface aurel-info-packager
+  '((t))
+  "Face used for 'Packager' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-validated
+  '((t))
+  "Face used for 'Validated By' parameter."
+  :group 'aurel-info)
+
+(defface aurel-info-script
+  '((t))
+  "Face used for 'Install script' parameter."
+  :group 'aurel-info)
+
 (defcustom aurel-info-buffer-name "*AUR Package Info*"
   "Default name of the buffer with information about an AUR package."
   :type 'string
