@@ -7,7 +7,7 @@
 ;; Version: 0.8
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.3") (bui "1.0") (dash "2.11.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@
 
 ;; Information about the packages is represented in a list-like buffer
 ;; similar to a buffer containing emacs packages.  To get more info
-;; about a package, press "RET" on a package line.  To download a
+;; about a package (or marked packages), press "RET".  To download a
 ;; package, press "d" (don't forget to set `aurel-download-directory'
 ;; before).  In a list buffer, you can mark several packages for
 ;; downloading with "m"/"M" (and unmark with "u"/"U" and "DEL"); also
@@ -79,39 +79,18 @@
 (require 'url)
 (require 'url-handlers)
 (require 'json)
-(require 'tabulated-list)
 (require 'cl-lib)
+(require 'dash)
+(require 'bui)
+(require 'bui-list)
+(require 'bui-info)
+(require 'bui-button)
+(require 'bui-entry)
+(require 'bui-utils)
 
 (defgroup aurel nil
   "Search for and download AUR (Arch User Repository) packages."
   :group 'applications)
-
-(defcustom aurel-empty-string "-"
-  "String used for empty (or none) values of package parameters."
-  :type 'string
-  :group 'aurel)
-
-(defcustom aurel-true-string "Yes"
-  "String used if a parameter value is t."
-  :type 'string
-  :group 'aurel)
-
-(defcustom aurel-false-string "No"
-  "String used if a parameter value is nil."
-  :type 'string
-  :group 'aurel)
-
-(defcustom aurel-date-format "%Y-%m-%d %T"
-  "Time format used to represent time parameters of a package.
-For information about time formats, see `format-time-string'."
-  :type 'string
-  :group 'aurel)
-
-(defcustom aurel-list-single-package nil
-  "If non-nil, list a package even if it is the one matching result.
-If nil, show a single matching package in info buffer."
-  :type 'boolean
-  :group 'aurel)
 
 (defcustom aurel-aur-user-package-info-check nil
   "If non-nil, check additional info before displaying a package info.
@@ -130,41 +109,6 @@ This string can be displayed by pacman.")
 (defvar aurel-package-name-re
   "[-+_[:alnum:]]+"
   "Regexp matching a valid package name.")
-
-(defvar aurel-list-separator ", ")
-
-(defun aurel-get-string (val &optional face)
-  "Return string from VAL.
-If VAL is `aurel-none-string' return `aurel-empty-string'.
-If VAL is nil, return `aurel-false-string'.
-If VAL is t, return `aurel-true-string'.
-If VAL is a number, use `number-to-string'.
-If VAL is a time value, format it with `aurel-date-format'.
-If VAL is a list, separate its values with `aurel-list-separator'.
-Otherwise, if VAL is not string, use `prin1-to-string'.
-If FACE is non-nil, propertize returned string with this FACE."
-  (if (equal val aurel-none-string)
-      aurel-empty-string
-    (let ((str (cond
-                ((stringp val) val)
-                ((null val) aurel-false-string)
-                ((eq t val) aurel-true-string)
-                ((numberp val) (number-to-string val))
-                ((aurel-time-p val)
-                 (format-time-string aurel-date-format val))
-                ((listp val)
-                 (mapconcat #'aurel-get-string
-                            val aurel-list-separator))
-                (t (prin1-to-string val)))))
-      (if (and val face)
-          (propertize str 'face face)
-        str))))
-
-(defun aurel-time-p (val)
-  "Return non-nil, if VAL is a time value; return nil otherwise."
-  (condition-case nil
-      (decode-time val)
-    (error nil)))
 
 
 ;;; Debugging
@@ -394,15 +338,16 @@ return nil, if NOERROR is non-nil."
           t)))))
 
 (defun aurel-add-aur-user-package-info (info)
-  "Append additional info to a package INFO.
-INFO should have a form of `aurel-info'.
+  "Return a new info by adding AUR user info to package INFO.
 See `aurel-aur-user-package-info-check' for the meaning of
 additional info."
   (let ((add (aurel-get-aur-user-package-info
               (aurel-get-aur-package-url
-               (aurel-get-param-val 'name info)))))
-    (when add
-      (setcdr (last info) add))))
+               (bui-entry-value info 'name)))))
+    (if add
+        (cons (cons 'user-info add)
+              info)
+      info)))
 
 (defun aurel-get-aur-user-package-info (url)
   "Return AUR user specific information about a package from URL.
@@ -652,55 +597,6 @@ Cdr - is a parameter name (string) returned by the AUR server.")
 Car of each assoc is a symbol used in code of this package.
 Cdr - is a parameter name (string) returned by pacman.")
 
-(defvar aurel-param-description-alist
-  '((pkg-url           . "Download URL")
-    (home-url          . "Home Page")
-    (aur-url           . "AUR Page")
-    (base-url          . "Package Base")
-    (last-date         . "Last Modified")
-    (first-date        . "Submitted")
-    (outdated          . "Out Of Date")
-    (votes             . "Votes")
-    (popularity        . "Popularity")
-    (license           . "License")
-    (description       . "Description")
-    (keywords          . "Keywords")
-    (version           . "Version")
-    (name              . "Name")
-    (id                . "ID")
-    (base-name         . "Package Base")
-    (base-id           . "Package Base ID")
-    (maintainer        . "Maintainer")
-    (installed-name    . "Name")
-    (installed-version . "Version")
-    (installed-provides . "Provides")
-    (installed-depends . "Depends On")
-    (installed-conflicts . "Conflicts With")
-    (installed-replaces . "Replaces")
-    (architecture      . "Architecture")
-    (provides          . "Provides")
-    (depends           . "Depends On")
-    (depends-make      . "Make Deps")
-    (depends-opt       . "Optional Deps")
-    (script            . "Install Script")
-    (reason            . "Install Reason")
-    (validated         . "Validated By")
-    (required          . "Required By")
-    (optional-for      . "Optional For")
-    (conflicts         . "Conflicts With")
-    (replaces          . "Replaces")
-    (installed-size    . "Size")
-    (packager          . "Packager")
-    (build-date        . "Build Date")
-    (install-date      . "Install Date")
-    (voted             . "Voted")
-    (subscribed        . "Subscribed"))
-  "Association list of symbols and descriptions of parameters.
-Descriptions are used for displaying package information.
-Symbols are either from `aurel-aur-param-alist', from
-`aurel-pacman-param-alist' or are added by filter functions.  See
-`aurel-apply-filters' for details.")
-
 (defun aurel-get-aur-param-name (param-symbol)
   "Return a name (string) of a parameter.
 PARAM-SYMBOL is a symbol from `aurel-aur-param-alist'."
@@ -720,17 +616,6 @@ PARAM-SYMBOL is a symbol from `aurel-pacman-param-alist'."
   "Return a symbol name of a parameter.
 PARAM-NAME is a string from `aurel-pacman-param-alist'."
   (car (rassoc param-name aurel-pacman-param-alist)))
-
-(defun aurel-get-param-description (param-symbol)
-  "Return a description of a parameter PARAM-SYMBOL."
-  (let ((desc (cdr (assoc param-symbol
-                          aurel-param-description-alist))))
-    (or desc
-        (progn
-          (setq desc (symbol-name param-symbol))
-          (message "Couldn't find '%s' in aurel-param-description-alist."
-                   desc)
-          desc))))
 
 (defun aurel-get-param-val (param info)
   "Return a value of a parameter PARAM from a package INFO."
@@ -757,7 +642,7 @@ with package parameters and should return info alist or
 nil (which means: ignore this package info).  Functions may
 modify associations or add the new ones to the alist.  In the
 latter case you might want to add descriptions of the added
-symbols into `aurel-param-description-alist'.
+symbols into `aurel-titles'.
 
 `aurel-aur-filter-intern' should be the first symbol in the list as
 other filters use symbols for working with info parameters (see
@@ -766,7 +651,9 @@ other filters use symbols for working with info parameters (see
 For more information, see `aurel-receive-packages-info'.")
 
 (defvar aurel-pacman-filters
-  '(aurel-pacman-filter-intern aurel-pacman-filter-date)
+  '(aurel-pacman-filter-intern
+    aurel-pacman-filter-none
+    aurel-pacman-filter-date)
 "List of filter functions applied to a package info got from pacman.
 
 `aurel-pacman-filter-intern' should be the first symbol in the list as
@@ -829,6 +716,13 @@ INFO is alist of parameter names (strings) from
 `aurel-pacman-param-alist' and their values.
 Return modified info."
   (aurel-filter-intern info 'aurel-get-pacman-param-symbol))
+
+(defun aurel-pacman-filter-none (info)
+  "Replace `aurel-none-string' values in pacman INFO with nil."
+  (mapcar (-lambda ((name . val))
+            (cons name
+                  (unless (string= val aurel-none-string) val)))
+          info))
 
 (defun aurel-filter-contains-every-string (info)
   "Check if a package INFO contains all necessary strings.
@@ -1004,64 +898,21 @@ Returning value has a form of `aurel-list'."
         (error "Wrong search type '%s'" type))
     (apply fun vals)))
 
-(defun aurel-search-show-packages
-    (search-type search-vals &optional buffer history)
-  "Search for packages and show results in BUFFER.
+(defun aurel-search-packages-with-user-info (type &rest vals)
+  "Search for AUR packages and return results.
+This is like `aurel-search-packages' but also add AUR user info
+depending on `aurel-aur-user-package-info-check'."
+  (let ((entries (apply #'aurel-search-packages type vals)))
+    (if aurel-aur-user-package-info-check
+        (mapcar #'aurel-add-aur-user-package-info entries)
+      entries)))
 
+(defun aurel-search-show-packages (search-type &rest search-vals)
+  "Search for packages and show results.
 See `aurel-search-packages' for the meaning of SEARCH-TYPE and
-SEARCH-VALS.
-
-See `aurel-show-packages' for the meaning of BUFFER and HISTORY."
-  (aurel-show-packages
-   (apply 'aurel-search-packages search-type search-vals)
-   buffer history search-type search-vals))
-
-(defun aurel-show-packages
-    (packages &optional buffer history search-type search-vals)
-  "Show PACKAGES in BUFFER.
-
-PACKAGES should have a form of `aurel-list'.
-
-If BUFFER is a buffer object, use it; if BUFFER is nil, use a
-default buffer; otherwise, use a unique buffer.
-
-If HISTORY is nil, do not save current item in history; if it is
-`add', add item to history; if `replace', replace current item.
-History item is a proper call of `aurel-show-packages' itself.
-
-If SEARCH-TYPE and SEARCH-VALS are non-nils, they are used for
-setting reverting action.  See `aurel-set-revert-action' for
-details."
-  (let ((count (length packages)))
-    (when (> count 0)
-      (if (and (= count 1)
-               (or (eq search-type 'name)
-                   (null aurel-list-single-package)))
-          (let ((info (cdar packages)))
-            ;; Add (maybe) AUR user info if the buffer is reverted or a
-            ;; new info is shown; if we are moving by a history
-            ;; (`history' is nil), do not add it.
-            (and history
-                 aurel-aur-user-package-info-check
-                 (aurel-add-aur-user-package-info info))
-            (aurel-info-show info
-                             (if (bufferp buffer)
-                                 buffer
-                               (aurel-info-get-buffer-name buffer))))
-        (aurel-list-show packages
-                         (if (bufferp buffer)
-                             buffer
-                           (aurel-list-get-buffer-name buffer))))
-      (when (and search-type search-vals)
-        (when history
-          (aurel-history-add
-           (list (lambda (packages type vals)
-                   (aurel-show-packages
-                    packages (current-buffer) nil type vals))
-                 packages search-type search-vals)
-           (eq history 'replace)))
-        (aurel-set-revert-action search-type search-vals)))
-    (aurel-found-message packages search-type search-vals)))
+SEARCH-VALS."
+  (apply #'bui-list-get-display-entries
+         'aurel search-type search-vals))
 
 (defvar aurel-found-messages
   '((name       (0    "The package \"%s\" not found." "Packages not found.")
@@ -1074,7 +925,7 @@ details."
                 (many "%d packages by maintainer %s.")))
   "Alist used by `aurel-found-message'.")
 
-(defun aurel-found-message (packages search-type search-vals)
+(defun aurel-found-message (packages search-type &rest search-vals)
   "Display a proper message about found PACKAGES.
 SEARCH-TYPE and SEARCH-VALS are arguments for
 `aurel-search-packages', by which the PACKAGES were found."
@@ -1097,103 +948,6 @@ SEARCH-TYPE and SEARCH-VALS are arguments for
                         (aurel-get-param-val 'name (cdar packages)))
                        (t (car search-vals)))))))
     (and msg (apply 'message msg args))))
-
-
-;;; History
-
-(defvar-local aurel-history-stack-item nil
-  "Current item of the history.
-A list of the form (FUNCTION [ARGS ...]).
-The item is used by calling (apply FUNCTION ARGS).")
-(put 'aurel-history-stack-item 'permanent-local t)
-
-(defvar-local aurel-history-back-stack nil
-  "Stack (list) of visited items.
-Each element of the list has a form of `aurel-history-stack-item'.")
-(put 'aurel-history-back-stack 'permanent-local t)
-
-(defvar-local aurel-history-forward-stack nil
-  "Stack (list) of items visited with `aurel-history-back'.
-Each element of the list has a form of `aurel-history-stack-item'.")
-(put 'aurel-history-forward-stack 'permanent-local t)
-
-(defvar aurel-history-size 0
-  "Maximum number of items saved in history.
-If 0, the history is disabled.")
-
-(defun aurel-history-add (item &optional replace)
-  "Add ITEM to history.
-If REPLACE is non-nil, replace the current item instead of adding."
-  (if replace
-      (setq aurel-history-stack-item item)
-    (and aurel-history-stack-item
-         (push aurel-history-stack-item aurel-history-back-stack))
-    (setq aurel-history-forward-stack nil
-          aurel-history-stack-item item)
-    (when (>= (length aurel-history-back-stack)
-              aurel-history-size)
-      (setq aurel-history-back-stack
-            (cl-loop for elt in aurel-history-back-stack
-                     for i from 1 to aurel-history-size
-                     collect elt)))))
-
-(defun aurel-history-goto (item)
-  "Go to the ITEM of history.
-ITEM should have the form of `aurel-history-stack-item'."
-  (or (listp item)
-      (error "Wrong value of history element"))
-  (setq aurel-history-stack-item item)
-  (apply (car item) (cdr item)))
-
-(defun aurel-history-back ()
-  "Go back to the previous element of history in the current buffer."
-  (interactive)
-  (or aurel-history-back-stack
-      (user-error "No previous element in history"))
-  (push aurel-history-stack-item aurel-history-forward-stack)
-  (aurel-history-goto (pop aurel-history-back-stack)))
-
-(defun aurel-history-forward ()
-  "Go forward to the next element of history in the current buffer."
-  (interactive)
-  (or aurel-history-forward-stack
-      (user-error "No next element in history"))
-  (push aurel-history-stack-item aurel-history-back-stack)
-  (aurel-history-goto (pop aurel-history-forward-stack)))
-
-
-;;; Reverting buffers
-
-(defcustom aurel-revert-no-confirm nil
-  "If non-nil, do not ask to confirm for reverting aurel buffer."
-  :type 'boolean
-  :group 'aurel)
-
-(defvar aurel-revert-action nil
-  "Action for refreshing information in the current aurel buffer.
-A list of the form (FUNCTION [ARGS ...]).
-The action is performed by calling (apply FUNCTION ARGS).")
-
-(defun aurel-revert-buffer (_ignore-auto noconfirm)
-  "Refresh information in the current aurel buffer.
-The function is suitable for `revert-buffer-function'.
-See `revert-buffer' for the meaning of and NOCONFIRM."
-  (when (or aurel-revert-no-confirm
-            noconfirm
-            (y-or-n-p "Refresh current information? "))
-    (apply (car aurel-revert-action)
-           (cdr aurel-revert-action))))
-
-(defun aurel-set-revert-action (search-type search-vals)
-  "Set `aurel-revert-action' to a proper value.
-SEARCH-TYPE and SEARCH-VALS are arguments for
-`aurel-search-show-packages' by which refreshing information is
-performed."
-  (setq aurel-revert-action
-        (list (lambda (type vals)
-                (aurel-search-show-packages
-                 type vals (current-buffer) 'replace))
-              search-type search-vals)))
 
 
 ;;; Downloading
@@ -1404,92 +1158,141 @@ FIELD is a field (string) for searching.  May be: 'name',
   "A history list for `aurel-maintainer-search'.")
 
 ;;;###autoload
-(defun aurel-package-info (name &optional arg)
-  "Display information about AUR package with NAME.
-The buffer for showing results is defined by `aurel-info-buffer-name'.
-With prefix (if ARG is non-nil), show results in a new info buffer."
+(defun aurel-package-info (name)
+  "Display information about AUR package with NAME."
   (interactive
    (list (read-string "Name: "
-                      nil 'aurel-package-info-history)
-         current-prefix-arg))
-  (aurel-search-show-packages 'name (list name) arg 'add))
+                      nil 'aurel-package-info-history)))
+  (aurel-search-show-packages 'name name))
 
 ;;;###autoload
-(defun aurel-package-search (string &optional arg)
+(defun aurel-package-search (string)
   "Search for AUR packages matching STRING.
 
 STRING can be a string of multiple words separated by spaces.  To
 search for a string containing spaces, quote it with double
 quotes.  For example, the following search is allowed:
 
-  \"python library\" plot
-
-The buffer for showing results is defined by
-`aurel-list-buffer-name'.  With prefix (if ARG is non-nil), show
-results in a new buffer."
+  \"python library\" plot"
   (interactive
    (list (read-string "Search by name/description: "
-                      nil 'aurel-package-search-history)
-         current-prefix-arg))
-  (aurel-search-show-packages
-   'string (split-string-and-unquote string) arg 'add))
+                      nil 'aurel-package-search-history)))
+  (apply #'aurel-search-show-packages
+         'string (split-string-and-unquote string)))
 
 ;;;###autoload
-(defun aurel-package-search-by-name (string &optional arg)
-  "Search for AUR packages with name containing STRING.
-
-The buffer for showing results is defined by
-`aurel-list-buffer-name'.  With prefix (if ARG is non-nil), show
-results in a new buffer."
+(defun aurel-package-search-by-name (string)
+  "Search for AUR packages with name containing STRING."
   (interactive
    (list (read-string "Search by name: "
-                      nil 'aurel-package-search-history)
-         current-prefix-arg))
-  (aurel-search-show-packages
-   'name-string (list string) arg 'add))
+                      nil 'aurel-package-search-history)))
+  (aurel-search-show-packages 'name-string string))
 
 ;;;###autoload
-(defun aurel-maintainer-search (name &optional arg)
-  "Search for AUR packages by maintainer NAME.
-The buffer for showing results is defined by `aurel-list-buffer-name'.
-With prefix (if ARG is non-nil), show results in a new buffer."
+(defun aurel-maintainer-search (name)
+  "Search for AUR packages by maintainer NAME."
   (interactive
    (list (read-string "Search by maintainer: "
-                      nil 'aurel-maintainer-search-history)
-         current-prefix-arg))
-  (aurel-search-show-packages
-   'maintainer (list name) arg 'add))
+                      nil 'aurel-maintainer-search-history)))
+  (aurel-search-show-packages 'maintainer name))
 
 ;;;###autoload
-(defun aurel-installed-packages (&optional arg)
-  "Display information about AUR packages installed in the system.
-The buffer for showing results is defined by `aurel-list-buffer-name'.
-With prefix (if ARG is non-nil), show results in a new buffer."
-  (interactive "P")
-  (aurel-search-show-packages
-   'name (aurel-get-foreign-packages) arg 'add))
+(defun aurel-installed-packages ()
+  "Display information about AUR packages installed in the system."
+  (interactive)
+  (apply #'aurel-search-show-packages
+         'name (aurel-get-foreign-packages)))
+
+
+;;; Package filtering predicates
+
+(defun aurel-package-maintained? (entry)
+  "Return non-nil, if package ENTRY has a maintainer."
+  (bui-entry-non-void-value entry 'maintainer))
+
+(defun aurel-package-unmaintained? (entry)
+  "Return non-nil, if package ENTRY does not have a maintainer."
+  (not (aurel-package-maintained? entry)))
+
+(defun aurel-package-outdated? (entry)
+  "Return non-nil, if package ENTRY is outdated."
+  (bui-entry-non-void-value entry 'outdated))
+
+(defun aurel-package-not-outdated? (entry)
+  "Return non-nil, if package ENTRY is not outdated."
+  (not (aurel-package-outdated? entry)))
+
+(defun aurel-package-same-versions? (entry)
+  "Return non-nil, if package ENTRY has the same installed and
+available AUR versions."
+  (equal (bui-entry-non-void-value entry 'version)
+         (bui-entry-non-void-value entry 'installed-version)))
+
+(defun aurel-package-different-versions? (entry)
+  "Return non-nil, if package ENTRY has different installed and
+available AUR versions."
+  (not (aurel-package-same-versions? entry)))
+
+(defun aurel-package-matching-regexp? (entry regexp)
+  "Return non-nil, if package ENTRY's name or description match REGEXP."
+  (or (string-match-p regexp (bui-entry-non-void-value entry 'name))
+      (string-match-p regexp (bui-entry-non-void-value entry 'description))))
+
+(defun aurel-package-not-matching-regexp? (entry regexp)
+  "Return non-nil, if package ENTRY's name or description do not match REGEXP."
+  (not (aurel-package-matching-regexp? entry regexp)))
+
+
+;;; Minibuffer readers
+
+(defun aurel-read-package-name (&optional entries)
+  "Prompt for a package name and return it.
+Names are completed from package ENTRIES."
+  (completing-read "Package: "
+                   (--map (bui-entry-value it 'name) entries)))
+
+(defun aurel-read-entry-by-name (entries)
+  "Prompt for a package name and return an entry with this name from ENTRIES."
+  (pcase entries
+    (`(,entry) entry)
+    (_ (bui-entry-by-param entries 'name
+                           (aurel-read-package-name entries)))))
+
+
+;;; Common for 'list' and 'info'
+
+(bui-define-entry-type aurel
+  :message-function 'aurel-found-message
+  :mode-init-function 'aurel-initialize
+  :titles
+  '((pkg-url             . "Package URL")
+    (home-url            . "Home page")
+    (aur-url             . "AUR page")
+    (base-url            . "Package base")
+    (last-date           . "Last modified")
+    (first-date          . "Submitted")
+    (outdated            . "Out of date")
+    (base-name           . "Package base")
+    (base-id             . "Package base ID")
+    (depends             . "Depends on")
+    (depends-make        . "Make deps")
+    (conflicts           . "Conflicts with"))
+  :filter-predicates
+  '(aurel-package-maintained?
+    aurel-package-unmaintained?
+    aurel-package-outdated?
+    aurel-package-not-outdated?
+    aurel-package-different-versions?
+    aurel-package-same-versions?)
+  :boolean-params '(outdated))
+
+(defun aurel-initialize ()
+  "Set local variables common for aurel modes."
+  (setq default-directory aurel-download-directory)
+  (bui-mode-initialize-default 'aurel (bui-current-buffer-type)))
 
 
 ;;; Package list
-
-(defgroup aurel-list nil
-  "Buffer with a list of AUR packages."
-  :group 'aurel)
-
-(defface aurel-list-marked
-  '((t :inherit dired-marked))
-  "Face used for the marked packages."
-  :group 'aurel-list)
-
-(defcustom aurel-list-buffer-name "*AUR Packages*"
-  "Default name of the buffer with a list of AUR packages."
-  :type 'string
-  :group 'aurel-list)
-
-(defcustom aurel-list-mode-name "AURel-List"
-  "Default name of `aurel-list-mode', displayed in the mode line."
-  :type 'string
-  :group 'aurel-list)
 
 (defcustom aurel-list-download-function 'aurel-download-unpack
   "Function used for downloading a single AUR package from list buffer.
@@ -1510,82 +1313,33 @@ destination directory."
   :type 'boolean
   :group 'aurel-list)
 
-(defcustom aurel-list-history-size 10
-  "Maximum number of items saved in history of package list buffer.
-If 0, the history is disabled."
-  :type 'integer
-  :group 'aurel-list)
-
-(defvar aurel-list-column-name-alist
-  '((installed-version . "Installed"))
-  "Alist of parameter names used as titles for columns.
-Each association is a cons of parameter symbol and column name.
-If no parameter is not found in this alist, the value from
-`aurel-param-description-alist' is used for a column name.")
-
-(defvar aurel-list-column-value-alist
-  '((name              . aurel-list-get-name)
-    (maintainer        . aurel-list-get-maintainer)
-    (popularity        . aurel-list-get-popularity)
-    (installed-version . aurel-list-get-installed-version))
-  "Alist for parameter values inserted in columns.
-Each association is a cons of parameter symbol from
-`aurel-param-description-alist' and a function returning a value
-that will be inserted.  The function should take a package info
-of the form of `aurel-info' as an argument.")
-
-(defvar aurel-list nil
-  "Alist with packages info.
-
-Car of each assoc is a package ID (number).
-Cdr - is alist of package info of the form of `aurel-info'.")
-
-(defvar aurel-list-filters nil
-  "List of filter functions applied to a package info.
-
-Each filter function should accept a single argument - info alist
-with package parameters and should return info alist or
-nil (which means: do not display this package).  These filters
-are applied before displaying the list of packages.")
-
 (defvar aurel-list-available-filters
   '(aurel-list-filter-maintained aurel-list-filter-unmaintained
     aurel-list-filter-outdated aurel-list-filter-not-outdated
     aurel-list-filter-match-regexp aurel-list-filter-not-match-regexp
     aurel-list-filter-different-versions aurel-list-filter-same-versions)
   "List of commands that can be called for filtering a package list.
-Used by `aurel-list-enable-filter'.
-Each function should make a proper filter function and should
-take one argument and pass those to `aurel-list-apply-filter'.")
+Used by `aurel-list-enable-filter'.")
 
-(defvar aurel-list-marks nil
-  "Alist of current marks.
-Each association is a cons cell of a package ID and overlay used
-to highlight a line with this package.")
-
-(defvar aurel-list-votes-column nil
-  "The number of column with votes in the current tabulated-list.")
-
-(defvar aurel-list-column-format
-  '((name 20 t)
-    (version 12 nil)
-    (installed-version 12 t)
-    (maintainer 13 t)
-    ;; We cannot use simple sort for votes as they will be sorted as
-    ;; strings, e.g.: (1, 13, 2, 200, 3) instead of (1, 2, 3, 13, 200).
-    ;; So we use a special function to compare votes as numbers.
-    (votes 8 aurel-list-sort-by-votes)
-    (popularity 12 t)
-    (description 30 nil))
-  "List specifying columns used in the buffer with a list of packages.
-Each element of the list should have the form (NAME WIDTH SORT . PROPS).
-NAME is a parameter symbol from `aurel-param-description-alist'.
-For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
+(bui-define-interface aurel list
+  :buffer-name "*AUR Packages*"
+  :mode-name "AURel-List"
+  :get-entries-function 'aurel-search-packages
+  :describe-function 'aurel-list-describe
+  :titles '((installed-version . "Installed"))
+  :format '((name aurel-list-get-name 30 t)
+            (version nil 12 t)
+            (installed-version nil 12 t)
+            (maintainer nil 13 t)
+            (votes nil 8 bui-list-sort-numerically-4 :right-align t)
+            (popularity aurel-list-get-popularity 12 t)
+            (description nil 30 nil))
+  :sort-key '(name))
 
 (defvar aurel-list-filter-map
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map bui-filter-map)
     (define-key map (kbd "f") 'aurel-list-enable-filter)
-    (define-key map (kbd "d") 'aurel-list-disable-filters)
     (define-key map (kbd "v") 'aurel-list-filter-same-versions)
     (define-key map (kbd "V") 'aurel-list-filter-different-versions)
     (define-key map (kbd "m") 'aurel-list-filter-unmaintained)
@@ -1598,175 +1352,36 @@ For the meaning of WIDTH, SORT and PROPS, see `tabulated-list-format'.")
   "Keymap with filter commands for `aurel-list-mode'.")
 (fset 'aurel-list-filter-map aurel-list-filter-map)
 
-(defvar aurel-list-mode-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map tabulated-list-mode-map)
-    (define-key map (kbd "RET") 'aurel-list-describe-package)
-    (define-key map (kbd "d")   'aurel-list-download-package)
-    (define-key map (kbd "l")   'aurel-history-back)
-    (define-key map (kbd "r")   'aurel-history-forward)
-    (define-key map (kbd "m")   'aurel-list-mark)
-    (define-key map (kbd "u")   'aurel-list-unmark)
-    (define-key map (kbd "M")   'aurel-list-mark-all)
-    (define-key map (kbd "U")   'aurel-list-unmark-all)
-    (define-key map (kbd "DEL") 'aurel-list-unmark-backward)
-    (define-key map (kbd "s")   'aurel-list-sort)
-    (define-key map (kbd "S")   'aurel-list-sort)
-    (define-key map (kbd "f")   'aurel-list-filter-map)
-    (define-key map (kbd "g")   'revert-buffer)
-    map)
-  "Keymap for `aurel-list-mode'.")
+(let ((map aurel-list-mode-map))
+  (define-key map (kbd "d") 'aurel-list-download-package)
+  (define-key map (kbd "f") 'aurel-list-filter-map))
 
-(defun aurel-list-sort-by-votes (a b)
-  "Compare tabulated entries A and B by the number of votes.
-It is a sort predicate for `tabulated-list-format'.
-Return non-nil, if A has more votes than B."
-  (cl-flet ((votes (entry)
-                   (string-to-number (aref (cadr entry)
-                                           aurel-list-votes-column))))
-    (> (votes a) (votes b))))
-
-(defun aurel-list-get-buffer-name (&optional unique)
-  "Return a name of a list buffer.
-If UNIQUE is non-nil, make the name unique."
-  (if unique
-      (generate-new-buffer aurel-list-buffer-name)
-    aurel-list-buffer-name))
-
-(define-derived-mode aurel-list-mode
-  tabulated-list-mode aurel-list-mode-name
-  "Major mode for browsing AUR packages.
-
-\\{aurel-list-mode-map}"
-  (make-local-variable 'aurel-list)
-  (make-local-variable 'aurel-list-filters)
-  (make-local-variable 'aurel-list-marks)
-  (make-local-variable 'aurel-revert-action)
-  (setq-local revert-buffer-function 'aurel-revert-buffer)
-  (setq-local aurel-history-size aurel-list-history-size)
-  (setq-local aurel-list-votes-column
-              (cl-loop
-               for col-spec in aurel-list-column-format
-               for i from 0
-               until (eq (car col-spec) 'votes)
-               finally return i))
-  (setq default-directory aurel-download-directory)
-  (setq tabulated-list-format
-        (apply #'vector
-               (mapcar
-                (lambda (col-spec)
-                  (let ((name (car col-spec)))
-                    (cons (or (cdr (assoc name aurel-list-column-name-alist))
-                              (aurel-get-param-description name))
-                          (cdr col-spec))))
-                aurel-list-column-format)))
-  (setq tabulated-list-sort-key
-        (list (aurel-get-param-description 'name)))
-  (tabulated-list-init-header))
-
-(defun aurel-list-show (list &optional buffer)
-  "Display a LIST of packages in BUFFER.
-LIST should have the form of `aurel-list'.
-If BUFFER is nil, use (create if needed) buffer with the name
-`aurel-list-buffer-name'."
-  (let ((buf (get-buffer-create
-              (or buffer aurel-list-buffer-name))))
-    (with-current-buffer buf
-      (aurel-list-show-in-current-buffer list))
-    (pop-to-buffer-same-window buf)))
-
-(defun aurel-list-show-in-current-buffer (list)
-  "Display a LIST of packages in current buffer.
-LIST should have the form of `aurel-list'."
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (aurel-list-mode)
-  (setq aurel-list list)
-  (aurel-list-print))
-
-(defun aurel-list-print (&optional list)
-  "Filter and print package LIST into the current tabulated-list buffer.
-If LIST is nil, use `aurel-list'."
-  ;; TODO restore marks for the packages that survive filtering
-  (aurel-list-unmark-all)
-  (setq tabulated-list-entries
-        (aurel-list-get-entries
-         (aurel-list-apply-filters (or list aurel-list))))
-  (tabulated-list-print))
-
-(defun aurel-list-get-entries (list)
-  "Return list of values suitable for `tabulated-list-entries'.
-Values are taken from LIST which should have the form of
-`aurel-list'.
-Use parameters from `aurel-list-column-format'."
-  (mapcar
-   (lambda (pkg)
-     (let ((id   (car pkg))
-           (info (cdr pkg)))
-       (list id
-             (apply #'vector
-                    (mapcar
-                     (lambda (col-spec)
-                       (let* ((param (car col-spec))
-                              (fun (cdr (assq param
-                                              aurel-list-column-value-alist))))
-                         (if fun
-                             (funcall fun info)
-                           (aurel-get-string
-                            (aurel-get-param-val param info)))))
-                     aurel-list-column-format)))))
-   list))
-
-(defun aurel-list-get-name (info)
-  "Return name of the package from a package INFO.
+(defun aurel-list-get-name (name entry)
+  "Return package NAME.
 Colorize the name with `aurel-info-outdated' if the package is
 out of date."
-  (aurel-get-string
-   (aurel-get-param-val 'name info)
-   (when (aurel-get-param-val 'outdated info)
-     'aurel-info-outdated)))
+  (bui-get-string name
+                  (when (bui-entry-value entry 'outdated)
+                    'aurel-info-outdated)))
 
-(defun aurel-list-get-maintainer (info)
-  "Return maintainer name from a package INFO."
-  (or (aurel-get-param-val 'maintainer info)
-      aurel-empty-string))
-
-(defun aurel-list-get-popularity (info)
-  "Return popularity from a package INFO."
+(defun aurel-list-get-popularity (popularity &optional _)
+  "Return formatted POPULARITY."
   ;; Display popularity in a decimal-point notation to avoid things like
   ;; "9.6e-05".
-  (format "%10.4f" (aurel-get-param-val 'popularity info)))
+  (format "%10.4f" popularity))
 
-(defun aurel-list-get-installed-version (info)
-  "Return installed version from a package INFO."
-  (or (aurel-get-param-val 'installed-version info)
-      aurel-empty-string))
-
-(defun aurel-list-get-current-id ()
-  "Return ID of the current package."
-  (or (tabulated-list-get-id)
-      (user-error "No package here")))
-
-(defun aurel-list-get-package-info (&optional id)
-  "Return info for a package with ID or for the current package."
-  (or id
-      (setq id (aurel-list-get-current-id)))
-  (or (cdr (assoc id aurel-list))
-      (error "No package with ID %s in aurel-list" id)))
-
-(defun aurel-list-describe-package (&optional arg)
-  "Describe the current package.
-With prefix (if ARG is non-nil), show results in a new info buffer."
-  (interactive "P")
-  (let* ((id (aurel-list-get-current-id))
-         (info (aurel-list-get-package-info id))
-         (name (aurel-get-param-val 'name info)))
-    ;; A list of packages is received using 'search' type.  However, in
-    ;; AUR RPC API, 'info' type returns several additional parameters
-    ;; ("Depends", "Replaces", ...) comparing to 'search' type.  So
-    ;; using just `aurel-show-packages' is not enough, and re-receiving
-    ;; a package info (using 'info' type this time) is needed.
-    (aurel-search-show-packages 'name (list name) arg 'add)))
+(defun aurel-list-describe (&rest ids)
+  "Describe packages with IDS."
+  ;; A list of packages is received using 'search' type.  However, in
+  ;; AUR RPC API, 'info' type returns several additional parameters
+  ;; ("Depends", "Replaces", ...) comparing to the 'search' type.  So
+  ;; re-receiving a package info (using 'info' type this time) is
+  ;; needed.  Moreover, this API does not (!) provide a way to get info
+  ;; by package IDs, so we have to search by names.
+  (let* ((entries (bui-entries-by-ids (bui-current-entries) ids))
+         (names   (--map (bui-entry-value it 'name)
+                         entries)))
+    (bui-get-display-entries 'aurel 'info (cons 'name names))))
 
 (defun aurel-list-download-package ()
   "Download marked packages or the current package if nothing is marked.
@@ -1778,128 +1393,26 @@ to save the package; without prefix, save to
 Use `aurel-list-download-function' if a single package is
 downloaded or `aurel-list-multi-download-function' otherwise."
   (interactive)
-  (let ((dir (aurel-read-download-directory))
-        (count (length aurel-list-marks))
-        (ids (mapcar #'car aurel-list-marks)))
+  (let* ((dir (aurel-read-download-directory))
+         (ids (or (bui-list-get-marked-id-list)
+                  (list (bui-list-current-id))))
+         (count (length ids)))
     (if (> count 1)
         (when (or aurel-list-multi-download-no-confirm
                   (y-or-n-p (format "Download %d marked packages? "
                                     count)))
-          (mapcar (lambda (id)
+          (mapcar (lambda (entry)
                     (funcall aurel-list-multi-download-function
-                             (aurel-get-param-val
-                              'pkg-url (aurel-list-get-package-info id))
+                             (bui-entry-value entry 'pkg-url)
                              dir))
-                  ids))
+                  (bui-entries-by-ids (bui-current-entries) ids)))
       (funcall aurel-list-download-function
-               (aurel-get-param-val
-                'pkg-url (aurel-list-get-package-info (car ids)))
+               (bui-entry-value (bui-entry-by-id (bui-current-entries)
+                                                 (car ids))
+                                'pkg-url)
                dir))))
 
-(defun aurel-list-sort (&optional n)
-  "Sort aurel list entries by the column at point.
-With a numeric prefix argument N, sort the Nth column.
-Same as `tabulated-list-sort', but also restore marks after sorting."
-  (interactive "P")
-  (let ((marks (mapcar #'car aurel-list-marks)))
-    (aurel-list-unmark-all)
-    (tabulated-list-sort n)
-    (when marks
-      (aurel-list-mark-packages marks))))
-
-;;; Marking packages
-
-(defun aurel-list-marked-p (id)
-  "Return non-nil, if a package with ID is marked."
-  (assq id aurel-list-marks))
-
-(defun aurel-list-mark ()
-  "Mark a package for downloading and move to the next line."
-  (interactive)
-  (let ((id (tabulated-list-get-id)))
-    (when (and id (not (aurel-list-marked-p id)))
-      (let ((overlay (make-overlay (line-beginning-position)
-                                   (line-end-position))))
-        (overlay-put overlay 'face 'aurel-list-marked)
-        (push (cons id overlay) aurel-list-marks)))
-    (forward-line)))
-
-(defun aurel-list-mark-packages (ids)
-  "Mark specified packages.
-IDS is a list of packages ID to mark.  If IDS is t, mark all packages."
-  (save-excursion
-    (goto-char (point-min))
-    (while (not (= (point) (point-max)))
-      (if (or (eq ids t)
-              (member (tabulated-list-get-id) ids))
-          (aurel-list-mark)
-        (forward-line)))))
-
-(defun aurel-list-mark-all ()
-  "Mark all packages for downloading."
-  (interactive)
-  (aurel-list-mark-packages t))
-
-(defun aurel-list--unmark ()
-  "Unmark a package on the current line."
-  (let ((id (tabulated-list-get-id)))
-    (setq aurel-list-marks
-          (cl-delete-if (lambda (assoc)
-                          (when (equal id (car assoc))
-                            (delete-overlay (cdr assoc))
-                            t))
-                        aurel-list-marks))))
-
-(defun aurel-list-unmark ()
-  "Unmark a package and move to the next line."
-  (interactive)
-  (aurel-list--unmark)
-  (forward-line))
-
-(defun aurel-list-unmark-backward ()
-  "Move up one line and unmark a package on that line."
-  (interactive)
-  (forward-line -1)
-  (aurel-list--unmark))
-
-(defun aurel-list-unmark-all ()
-  "Unmark all packages."
-  (interactive)
-  (dolist (assoc aurel-list-marks)
-    (delete-overlay (cdr assoc)))
-  (setq aurel-list-marks nil))
-
 ;;; Filtering package list
-
-(defun aurel-list-apply-filters (list &optional filters)
-  "Apply FILTERS to the LIST of packages.
-
-LIST should have the form of `aurel-list'.
-If FILTERS is nil, use `aurel-list-filters'.
-
-Each package info from LIST is passed as an argument to the first
-function from FILTERS, the returned result is passed to the
-second function from that list and so on.  If one of the FILTERS
-returns nil, this package info is not passed (do not call the
-rest filters in this case).
-
-Return a list containing all passed packages info."
-  (if (setq filters (or filters aurel-list-filters))
-      (cl-remove-if-not
-       (lambda (package)
-         (aurel-apply-filters (cdr package) filters))
-       list)
-    list))
-
-(defun aurel-list-apply-filter (filter &optional replace)
-  "Apply FILTER to the current package list and print results.
-If REPLACE is nil, add FILTER to the existing ones; if it is
-non-nil, remove other filters and make FILTER the only active
-one."
-  (if replace
-      (setq aurel-list-filters (list filter))
-    (add-to-list 'aurel-list-filters filter))
-  (aurel-list-print))
 
 (defun aurel-list-enable-filter (arg)
   "Prompt for a function for filtering package list and call it.
@@ -1916,84 +1429,50 @@ active one (remove other filters)."
         (error "Wrong function %s" fun))
     (funcall fun arg)))
 
-(defun aurel-list-disable-filters ()
-  "Disable all current filters and redisplay packages."
-  (interactive)
-  (setq aurel-list-filters nil)
-  (aurel-list-print))
-
 (defun aurel-list-filter-maintained (arg)
   "Filter current list by hiding maintained packages.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (unless (aurel-get-param-val 'maintainer info)
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-unmaintained? arg))
 
 (defun aurel-list-filter-unmaintained (arg)
   "Filter current list by hiding unmaintained packages.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (when (aurel-get-param-val 'maintainer info)
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-maintained? arg))
 
 (defun aurel-list-filter-outdated (arg)
   "Filter current list by hiding outdated packages.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (unless (aurel-get-param-val 'outdated info)
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-not-outdated? arg))
 
 (defun aurel-list-filter-not-outdated (arg)
   "Filter current list by hiding not outdated packages.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (when (aurel-get-param-val 'outdated info)
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-outdated? arg))
 
 (defun aurel-list-filter-same-versions (arg)
   "Hide packages with the same installed and available AUR versions.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (unless (equal (aurel-get-param-val 'version info)
-                    (aurel-get-param-val 'installed-version info))
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-different-versions? arg))
 
 (defun aurel-list-filter-different-versions (arg)
   "Hide packages with different installed and available AUR versions.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
-  (aurel-list-apply-filter
-   (lambda (info)
-     (when (equal (aurel-get-param-val 'version info)
-                  (aurel-get-param-val 'installed-version info))
-       info))
-   arg))
+  (bui-enable-filter 'aurel-package-same-versions? arg))
 
 (defun aurel-list-filter-match-regexp (arg)
   "Hide packages with names or descriptions matching prompted regexp.
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
   (let ((re (read-regexp "Hide packages matching regexp: ")))
-    (aurel-list-apply-filter
-     `(lambda (info)
-        (unless (or (string-match-p ,re (aurel-get-param-val 'name info))
-                    (string-match-p ,re (aurel-get-param-val 'description info)))
-          info))
+    (bui-enable-filter
+     (lambda (entry)
+       (aurel-package-not-matching-regexp? entry re))
      arg)))
 
 (defun aurel-list-filter-not-match-regexp (arg)
@@ -2001,19 +1480,13 @@ See `aurel-list-enable-filter' for the meaning of ARG."
 See `aurel-list-enable-filter' for the meaning of ARG."
   (interactive "P")
   (let ((re (read-regexp "Hide packages not matching regexp: ")))
-    (aurel-list-apply-filter
-     `(lambda (info)
-        (when (or (string-match-p ,re (aurel-get-param-val 'name info))
-                  (string-match-p ,re (aurel-get-param-val 'description info)))
-          info))
+    (bui-enable-filter
+     (lambda (entry)
+       (aurel-package-matching-regexp? entry re))
      arg)))
 
 
 ;;; Package info
-
-(defgroup aurel-info nil
-  "Buffer with information about AUR package."
-  :group 'aurel)
 
 (defface aurel-info-id
   '((t))
@@ -2028,11 +1501,6 @@ See `aurel-list-enable-filter' for the meaning of ARG."
 (defface aurel-info-maintainer
   '((t :inherit button))
   "Face used for a maintainer of a package."
-  :group 'aurel-info)
-
-(defface aurel-info-url
-  '((t :inherit button))
-  "Face used for URLs."
   :group 'aurel-info)
 
 (defface aurel-info-version
@@ -2073,11 +1541,6 @@ See `aurel-list-enable-filter' for the meaning of ARG."
 (defface aurel-info-outdated
   '((t :inherit font-lock-warning-face))
   "Face used if a package is out of date."
-  :group 'aurel-info)
-
-(defface aurel-info-not-outdated
-  '((t))
-  "Face used if a package is not out of date."
   :group 'aurel-info)
 
 (defface aurel-info-voted
@@ -2177,49 +1640,11 @@ See `aurel-list-enable-filter' for the meaning of ARG."
   "Face used for 'Install script' parameter."
   :group 'aurel-info)
 
-(defcustom aurel-info-buffer-name "*AUR Package Info*"
-  "Default name of the buffer with information about an AUR package."
-  :type 'string
-  :group 'aurel-info)
-
-(defcustom aurel-info-mode-name "AURel-Info"
-  "Default name of `aurel-info-mode', displayed in the mode line."
-  :type 'string
-  :group 'aurel-info)
-
-(defcustom aurel-info-ignore-empty-vals t
-  "If nil, display empty values of package parameters.
-Empty means non-existing (as returned by AUR API) or 'None' (as
-returned by pacman) values.
-See also `aurel-empty-string'."
-  :type 'boolean
-  :group 'aurel-info)
-
-(defcustom aurel-info-format "%-16s: "
-  "String used to format a description of each package parameter.
-It should be a '%s'-sequence.  After inserting a description
-formatted with this string, a value of the paramter is inserted."
-  :type 'string
-  :group 'aurel-info)
-
-(defcustom aurel-info-fill-column 60
-  "Column used for filling (word wrapping) a description of a package.
-This value does not include the length of a description of the
-parameter, it is added to it; see `aurel-info-format'."
-  :type 'integer
-  :group 'aurel-info)
-
 (defcustom aurel-info-download-function 'aurel-download-unpack-dired
   "Function used for downloading AUR package from package info buffer.
 It should accept 2 arguments: URL of a downloading file and a
 destination directory."
   :type (aurel-download-get-defcustom-type)
-  :group 'aurel-info)
-
-(defcustom aurel-info-history-size 100
-  "Maximum number of items saved in history of package info buffer.
-If 0, the history is disabled."
-  :type 'integer
   :group 'aurel-info)
 
 (defcustom aurel-info-voted-mark "*"
@@ -2237,7 +1662,7 @@ is non-nil)."
   :group 'aurel-info)
 
 (defcustom aurel-info-installed-package-string
-  "\n\nThe package is installed:\n\n"
+  "\nThis package is installed:\n\n"
   "String inserted in info buffer if a package is installed.
 It is inserted after printing info from AUR and before info from pacman."
   :type 'string
@@ -2249,282 +1674,190 @@ It is inserted after printing info from AUR and before info from pacman."
   :type 'string
   :group 'aurel-info)
 
-(defcustom aurel-info-show-maintainer-account t
-  "If non-nil, display a link to maintainer's AUR account."
-  :type 'boolean
-  :group 'aurel-info)
+(bui-define-interface aurel info
+  :buffer-name "*AUR Package Info*"
+  :mode-name "AURel-Info"
+  :get-entries-function 'aurel-search-packages-with-user-info
+  :format '((name nil (simple aurel-info-name))
+            nil
+            (description nil (simple aurel-info-description))
+            nil
+            (pkg-url simple aurel-info-insert-package-url)
+            (version format (simple aurel-info-version))
+            (maintainer format aurel-info-insert-maintainer)
+            (home-url format (format bui-url))
+            aurel-info-insert-aur-url
+            aurel-info-insert-base-url
+            (provides format (format aurel-info-provides))
+            (depends-make format (format aurel-info-depends-make))
+            (depends format (format aurel-info-depends))
+            (conflicts format (format aurel-info-conflicts))
+            (replaces format (format aurel-info-replaces))
+            (license format (format aurel-info-license))
+            (keywords format (format aurel-info-keywords))
+            (votes format aurel-info-insert-votes)
+            (popularity format (simple aurel-info-popularity))
+            (outdated format (time aurel-info-outdated))
+            (first-date format (time aurel-info-date))
+            (last-date format (time aurel-info-date))
+            aurel-info-insert-pacman-info
+            aurel-info-insert-aur-user-info))
 
-(defvar aurel-info-insert-params-alist
-  '((id                . aurel-info-id)
-    (base-id           . aurel-info-id)
-    (name              . aurel-info-name)
-    (base-name         . aurel-info-name)
-    (maintainer        . aurel-info-insert-maintainer)
-    (version           . aurel-info-version)
-    (installed-version . aurel-info-version)
-    (keywords          . aurel-info-keywords)
-    (license           . aurel-info-license)
-    (votes             . aurel-info-insert-votes)
-    (popularity        . aurel-info-popularity)
-    (first-date        . aurel-info-date)
-    (last-date         . aurel-info-date)
-    (install-date      . aurel-info-date)
-    (build-date        . aurel-info-date)
-    (description       . aurel-info-description)
-    (outdated          . aurel-info-insert-outdated)
-    (voted             . aurel-info-insert-voted)
-    (subscribed        . aurel-info-insert-subscribed)
-    (pkg-url           . aurel-info-insert-url)
-    (home-url          . aurel-info-insert-url)
-    (aur-url           . aurel-info-insert-aur-url)
-    (base-url          . aurel-info-insert-base-url)
-    (architecture      . aurel-info-architecture)
-    (provides          . aurel-info-provides)
-    (installed-provides . aurel-info-provides)
-    (replaces          . aurel-info-replaces)
-    (installed-replaces . aurel-info-replaces)
-    (conflicts         . aurel-info-conflicts)
-    (installed-conflicts . aurel-info-conflicts)
-    (depends           . aurel-info-depends)
-    (installed-depends . aurel-info-depends)
-    (depends-make      . aurel-info-depends-make)
-    (depends-opt       . aurel-info-depends-opt)
-    (required          . aurel-info-required)
-    (optional-for      . aurel-info-optional-for)
-    (installed-size    . aurel-info-size))
-  "Alist for parameters inserted into info buffer.
-Car of each assoc is a symbol from `aurel-param-description-alist'.
-Cdr is a symbol for inserting a value of a parameter.  If the
-symbol is a face name, it is used for the value; if it is a function,
-it is called with the value of the parameter.")
+(bui-define-interface aurel-pacman info
+  :reduced? t
+  :format '((installed-version format (simple aurel-info-version))
+            (architecture format (simple aurel-info-architecture))
+            (installed-size format (simple aurel-info-size))
+            (installed-provides format (format aurel-info-provides))
+            (installed-depends format (format aurel-info-depends))
+            (depends-opt format (format aurel-info-depends-opt))
+            (required format (format aurel-info-required))
+            (optional-for format (format aurel-info-optional-for))
+            (installed-conflicts format (format aurel-info-conflicts))
+            (installed-replaces format (format aurel-info-replaces))
+            (packager format (simple aurel-info-packager))
+            (build-date format (time aurel-info-date))
+            (install-date format (time aurel-info-date))
+            (script format (format aurel-info-script))
+            (validated format (format aurel-info-validated)))
+  :titles
+  '((installed-name      . "Name")
+    (installed-version   . "Version")
+    (installed-provides  . "Provides")
+    (installed-depends   . "Depends on")
+    (installed-conflicts . "Conflicts with")
+    (installed-replaces  . "Replaces")
+    (installed-size      . "Size")
+    (depends-opt         . "Optional deps")
+    (script              . "Install script")
+    (reason              . "Install reason")
+    (validated           . "Validated by")
+    (required            . "Required by")))
 
-(defvar aurel-info-parameters
-  '(name version maintainer description home-url aur-url base-url
-    provides depends-make depends conflicts replaces
-    license keywords votes popularity outdated first-date last-date)
-  "List of parameters displayed in package info buffer.
-Each parameter should be a symbol from `aurel-param-description-alist'.
-The order of displayed parameters is the same as in this list.
-If nil, display all parameters with no particular order.")
+(bui-define-interface aurel-user info
+  :reduced? t
+  :format '((voted format aurel-info-insert-voted)
+            (subscribed format aurel-info-insert-subscribed)))
 
-(defvar aurel-info-installed-parameters
-  '(installed-version architecture installed-size installed-provides
-    installed-depends depends-opt required optional-for
-    installed-conflicts installed-replaces packager
-    build-date install-date script validated)
-  "List of parameters of an installed package displayed in info buffer.
-Each parameter should be a symbol from `aurel-param-description-alist'.
-The order of displayed parameters is the same as in this list.
-If nil, display all parameters with no particular order.")
+(let ((map aurel-info-mode-map))
+  (define-key map (kbd "d") 'aurel-info-download-package)
+  (define-key map (kbd "v") 'aurel-info-vote-unvote)
+  (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe))
 
-(defvar aurel-info-aur-user-parameters
-  '(voted subscribed)
-  "List of parameters specific for AUR user displayed in info buffer.
-Each parameter should be a symbol from `aurel-param-description-alist'.
-The order of displayed parameters is the same as in this list.
-If nil, display all parameters with no particular order.")
-
-(defvar aurel-info nil
-  "Alist with package info.
-
-Car of each assoc is a symbol from `aurel-param-description-alist'.
-Cdr - is a value of that parameter.")
-
-(defvar aurel-info-mode-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map (make-composed-keymap button-buffer-map
-                                                 special-mode-map))
-    (define-key map (kbd "d") 'aurel-info-download-package)
-    (define-key map (kbd "l") 'aurel-history-back)
-    (define-key map (kbd "r") 'aurel-history-forward)
-    (define-key map (kbd "v") 'aurel-info-vote-unvote)
-    (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe)
-    map)
-  "Keymap for `aurel-info-mode'.")
-
-(defun aurel-info-get-buffer-name (&optional unique)
-  "Return a name of an info buffer.
-If UNIQUE is non-nil, make the name unique."
-  (if unique
-      (generate-new-buffer aurel-info-buffer-name)
-    aurel-info-buffer-name))
-
-(define-derived-mode aurel-info-mode special-mode aurel-info-mode-name
-  "Major mode for displaying information about an AUR package.
-
-\\{aurel-info-mode-map}"
-  (make-local-variable 'aurel-info)
-  (make-local-variable 'aurel-revert-action)
-  (setq-local revert-buffer-function 'aurel-revert-buffer)
-  (setq-local aurel-history-size aurel-info-history-size)
-  (setq default-directory aurel-download-directory))
-
-(defun aurel-info-show (info &optional buffer)
-  "Display package information INFO in BUFFER.
-INFO should have the form of `aurel-info'.
-If BUFFER is nil, use (create if needed) buffer with the name
-`aurel-info-buffer-name'."
-  (let ((buf (get-buffer-create
-              (or buffer aurel-info-buffer-name))))
-    (with-current-buffer buf
-      (aurel-info-show-in-current-buffer info))
-    (pop-to-buffer-same-window buf)))
-
-(defun aurel-info-show-in-current-buffer (info)
-  "Display package information INFO in current buffer.
-INFO should have the form of `aurel-info'."
-  (aurel-info-mode)
-  (setq aurel-info info)
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (apply 'aurel-info-print
-           info aurel-info-parameters)
-    (when (assoc 'voted info)
-      (insert aurel-info-aur-user-string)
-      (apply 'aurel-info-print
-             info aurel-info-aur-user-parameters))
-    (when (aurel-get-param-val 'installed-name info)
-      (insert aurel-info-installed-package-string)
-      (apply 'aurel-info-print
-             info aurel-info-installed-parameters)))
-  (goto-char (point-min)))
-
-(defun aurel-info-print (info &rest params)
-  "Insert (pretty print) package INFO into current buffer.
-Each element from PARAMS is a parameter to insert (symbol from
-`aurel-param-description-alist')."
-  (mapc (lambda (param)
-          (aurel-info-print-param info param))
-        params))
-
-(defun aurel-info-print-param (info param)
-  "Insert description and value of an INFO parameter PARAM at point.
-PARAM is a symbol from `aurel-param-description-alist'.
-Use `aurel-info-format' to format descriptions of parameters."
-  (let* ((param-assq (assq param info))
-         (val (if param-assq
-                  (cdr param-assq)
-                aurel-none-string))
-         (insert-val (cdr (assq param aurel-info-insert-params-alist)))
-         (insert-fun? (functionp insert-val)))
-    (unless (and aurel-info-ignore-empty-vals
-                 (not insert-fun?)
-                 (or (null param-assq)
-                     (equal val aurel-none-string)))
-      (insert (format aurel-info-format
-                      (aurel-get-param-description param)))
-      (if insert-fun?
-          (funcall insert-val val)
-        (aurel-info-insert-val
-         val (and (facep insert-val) insert-val)))
-      (insert "\n"))))
-
-(defun aurel-info-insert-votes (votes)
+(defun aurel-info-insert-votes (votes entry)
   "Insert the number of VOTES at point.
 If `aurel-info-display-voted-mark' is non-nil, insert
 `aurel-info-voted-mark' after."
-  (aurel-info-insert-val votes 'aurel-info-votes)
+  (bui-format-insert votes 'aurel-info-votes)
   (and aurel-info-display-voted-mark
-       (aurel-get-param-val 'voted aurel-info)
-       (aurel-info-insert-val aurel-info-voted-mark
-                              'aurel-info-voted-mark)))
+       (--when-let (bui-entry-non-void-value entry 'user-info)
+         (bui-entry-value it 'voted))
+       (bui-format-insert aurel-info-voted-mark
+                          'aurel-info-voted-mark)))
 
-(defun aurel-info-insert-maintainer (name)
+(define-button-type 'aurel-maintainer
+  :supertype 'bui
+  'face 'aurel-info-maintainer
+  'follow-link t
+  'help-echo "Browse maintainer's account"
+  'action (lambda (btn)
+            (browse-url (aurel-get-maintainer-account-url
+                         (button-label btn)))))
+
+(defun aurel-info-insert-maintainer (name &optional _)
   "Make button from maintainer NAME and insert it at point."
-  (if (null name)
-      (insert aurel-empty-string)
-    (insert-button
-     name
-     'face 'aurel-info-maintainer
-     'action (lambda (btn)
-               (aurel-maintainer-search (button-label btn)
-                                        current-prefix-arg))
-     'follow-link t
-     'help-echo "mouse-2, RET: Find the packages by this maintainer")
-    (when aurel-info-show-maintainer-account
-      (insert "\n"
-              (format aurel-info-format ""))
-      (aurel-info-insert-url (aurel-get-maintainer-account-url name)))))
+  (bui-insert-non-nil name
+    (bui-insert-button name 'aurel-maintainer)
+    (bui-insert-indent)
+    (bui-insert-action-button
+     "Packages"
+     (lambda (btn)
+       (aurel-maintainer-search (button-get btn 'maintainer)))
+     "Find packages by this maintainer"
+     'maintainer name)))
 
-(defun aurel-info-insert-aur-url (_)
+(defun aurel-info-insert-package-url (url &optional _)
+  "Insert package URL and 'Download' button at point."
+  (bui-insert-action-button
+   "Download"
+   (lambda (btn)
+     (aurel-info-download-package (button-get btn 'url)
+                                  (aurel-read-download-directory)))
+   "Download this package"
+   'url url)
+  (bui-info-insert-value-indent url 'bui-url))
+
+(defun aurel-info-insert-aur-url (entry)
   "Insert URL of the AUR package."
-  (aurel-info-insert-url
-   (aurel-get-aur-package-url
-    (aurel-get-param-val 'name aurel-info))))
+  (bui-info-insert-title-format (bui-info-param-title 'aurel 'aur-url))
+  (bui-info-insert-value-simple
+   (aurel-get-aur-package-url (bui-entry-value entry 'name))
+   'bui-url)
+  (bui-newline))
 
-(defun aurel-info-insert-base-url (_)
+(defun aurel-info-insert-base-url (entry)
   "Insert URL of the AUR package base."
-  (aurel-info-insert-url
-   (aurel-get-package-base-url
-    (aurel-get-param-val 'base-name aurel-info))))
+  (bui-info-insert-title-format (bui-info-param-title 'aurel 'base-url))
+  (bui-info-insert-value-simple
+   (aurel-get-package-base-url (bui-entry-value entry 'base-name))
+   'bui-url)
+  (bui-newline))
 
-(defun aurel-info-insert-url (url)
-  "Make button from URL and insert it at point."
-  (insert-button
-   url
-   'face 'aurel-info-url
-   'action (lambda (btn) (browse-url (button-label btn)))
-   'follow-link t
-   'help-echo "mouse-2, RET: Browse URL"))
+(defun aurel-info-insert-pacman-info (entry)
+  "Insert installed (pacman) info from package ENTRY."
+  (when (bui-entry-non-void-value entry 'installed-name)
+    (insert aurel-info-installed-package-string)
+    (bui-info-insert-entry entry 'aurel-pacman)))
+
+(defun aurel-info-insert-aur-user-info (entry)
+  "Insert AUR user info from package ENTRY."
+  (--when-let (bui-entry-non-void-value entry 'user-info)
+    (insert aurel-info-aur-user-string)
+    (bui-info-insert-entry
+     ;; Add 'base-name' as it is needed for Vote/Subscribe buttons.
+     `((base-name . ,(bui-entry-value entry 'base-name))
+       ,@it)
+     'aurel-user)))
 
 (defun aurel-info-insert-boolean (val &optional t-face nil-face)
   "Insert boolean value VAL at point.
 If VAL is nil, use NIL-FACE, otherwise use T-FACE."
   (let ((face (if val t-face nil-face)))
-    (insert (aurel-get-string val face))))
+    (insert (bui-get-string (or val bui-false-string) face))))
 
-(defun aurel-info-insert-outdated (val)
-  "Insert value VAL of the `outdated' parameter at point."
-  (aurel-info-insert-boolean
-   val 'aurel-info-outdated 'aurel-info-not-outdated))
+(defun aurel-info-aur-user-action-button (button)
+  (aurel-info-aur-user-action (button-get button 'aur-action)
+                              (button-get button 'base-name)))
 
-(defun aurel-info-insert-voted (val)
-  "Insert value VAL of the `voted' parameter at point."
-  (aurel-info-insert-boolean
-   val 'aurel-info-voted 'aurel-info-not-voted))
+(defun aurel-info-insert-voted (voted entry)
+  "Insert VOTED parameter at point."
+  (aurel-info-insert-boolean voted
+                             'aurel-info-voted
+                             'aurel-info-not-voted)
+  (bui-insert-indent)
+  (bui-insert-action-button
+   (if voted "Unvote" "Vote")
+   'aurel-info-aur-user-action-button
+   (if voted
+       "Remove your vote for this package"
+     "Vote for this package")
+   'base-name (bui-entry-value entry 'base-name)
+   'aur-action (if voted 'unvote 'vote)))
 
-(defun aurel-info-insert-subscribed (val)
-  "Insert value VAL of the `subscribed' parameter at point."
-  (aurel-info-insert-boolean
-   val 'aurel-info-subscribed 'aurel-info-not-subscribed))
-
-(defun aurel-info-get-filled-string (str col)
-  "Return string by filling a string STR.
-COL controls the width for filling."
-  (with-temp-buffer
-    (insert str)
-    (let ((fill-column col)) (fill-region (point-min) (point-max)))
-    (buffer-string)))
-
-(defun aurel-info-insert-strings (strings &optional face)
-  "Insert STRINGS at point.
-Each string is inserted on a new line after an empty string
-formatted with `aurel-info-format'.
-If FACE is non-nil, propertize inserted lines with this FACE."
-  (dolist (str strings)
-    (insert "\n"
-            (format aurel-info-format "")
-            (aurel-get-string str face))))
-
-(defun aurel-info-insert-val (val &optional face)
-  "Format and insert parameter value VAL at point.
-If VAL is string longer than `aurel-info-fill-column', convert it
-into several shorter lines.
-If FACE is non-nil, propertize inserted line(s) with this FACE."
-  (if (stringp val)
-      (let ((strings (split-string val "\n *")))
-        (and (null (cdr strings))       ; if not multi-line
-             (> (length val) aurel-info-fill-column)
-             (setq strings
-                   (split-string (aurel-info-get-filled-string
-                                  val aurel-info-fill-column)
-                                 "\n")))
-        (insert (aurel-get-string (car strings) face))
-        (aurel-info-insert-strings (cdr strings) face))
-    (insert (aurel-get-string val face))))
-
-(defun aurel-info-download-package ()
-  "Download current package.
+(defun aurel-info-insert-subscribed (subscribed entry)
+  "Insert SUBSCRIBED parameter at point."
+  (aurel-info-insert-boolean subscribed
+                             'aurel-info-subscribed
+                             'aurel-info-not-subscribed)
+  (bui-insert-indent)
+  (bui-insert-action-button
+   (if subscribed "Unsubscribe" "Subscribe")
+   'aurel-info-aur-user-action-button
+   (if subscribed
+       "Unsubscribe from this package"
+     "Subscribe to this package")
+   'base-name (bui-entry-value entry 'base-name)
+   'aur-action (if subscribed 'unsubscribe 'subscribe)))
 
 (defun aurel-info-download-package (url dir)
   "Download package URL to DIR using `aurel-info-download-function'.
@@ -2533,17 +1866,17 @@ With prefix, prompt for a directory with `aurel-directory-prompt'
 to save the package; without prefix, save to
 `aurel-download-directory' without prompting."
   (interactive
-   (list (aurel-get-param-val 'pkg-url aurel-info)
+   (list (bui-entry-value (aurel-read-entry-by-name (bui-current-entries))
+                          'pkg-url)
          (aurel-read-download-directory)))
   (funcall aurel-info-download-function url dir))
 
-(defun aurel-info-aur-user-action (action &optional norevert)
+(defun aurel-info-aur-user-action (action package-base &optional norevert)
   "Perform AUR user ACTION on the current package.
-ACTION is a symbol from `aurel-aur-user-actions'.
+See `aurel-aur-user-action' for the meaning of ACTION and PACKAGE-BASE.
 If NOREVERT is non-nil, do not revert the buffer (i.e. do not
 refresh package information) after ACTION."
-  (and (aurel-aur-user-action
-        action (aurel-get-param-val 'base-name aurel-info))
+  (and (aurel-aur-user-action action package-base)
        (null norevert)
        (revert-buffer nil t)))
 
@@ -2551,13 +1884,19 @@ refresh package information) after ACTION."
   "Vote for the current package.
 With prefix (if ARG is non-nil), unvote."
   (interactive "P")
-  (aurel-info-aur-user-action (if arg 'unvote 'vote)))
+  (aurel-info-aur-user-action
+   (if arg 'unvote 'vote)
+   (bui-entry-value (aurel-read-entry-by-name (bui-current-entries))
+                    'base-name)))
 
 (defun aurel-info-subscribe-unsubscribe (arg)
   "Subscribe to the new comments of the current package.
 With prefix (if ARG is non-nil), unsubscribe."
   (interactive "P")
-  (aurel-info-aur-user-action (if arg 'unsubscribe 'subscribe)))
+  (aurel-info-aur-user-action
+   (if arg 'unsubscribe 'subscribe)
+   (bui-entry-value (aurel-read-entry-by-name (bui-current-entries))
+                    'base-name)))
 
 (provide 'aurel)
 
