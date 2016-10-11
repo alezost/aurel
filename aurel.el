@@ -1491,57 +1491,57 @@ See `aurel-list-enable-filter' for the meaning of ARG."
 (defface aurel-info-id
   '((t))
   "Face used for ID of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-name
   '((t :inherit font-lock-keyword-face))
   "Face used for a name of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-maintainer
   '((t :inherit button))
   "Face used for a maintainer of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-version
   '((t :inherit font-lock-builtin-face))
   "Face used for a version of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-keywords
   '((t :inherit font-lock-comment-face))
   "Face used for keywords of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-description
   '((t))
   "Face used for a description of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-license
   '((t))
   "Face used for a license of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-votes
   '((t :weight bold))
   "Face used for a number of votes of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-popularity
   '((t))
   "Face used for popularity of a package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-voted-mark
   '((t :inherit aurel-info-voted))
   "Face used for `aurel-info-voted-mark' string."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-outdated
   '((t :inherit font-lock-warning-face))
   "Face used if a package is out of date."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-voted
   '((default :weight bold)
@@ -1553,92 +1553,92 @@ See `aurel-list-enable-filter' for the meaning of ARG."
      :foreground "green")
     (t :underline t))
   "Face used if a package is voted."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-not-voted
   '((t))
   "Face used if a package is not voted."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-subscribed
   '((t :inherit aurel-info-voted))
   "Face used if a package is subscribed."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-not-subscribed
   '((t :inherit aurel-info-not-voted))
   "Face used if a package is not subscribed."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-date
   '((t :inherit font-lock-constant-face))
   "Face used for dates."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-size
   '((t :inherit font-lock-variable-name-face))
   "Face used for size of installed package."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-architecture
   '((t))
   "Face used for 'Architecture' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-provides
   '((t :inherit font-lock-function-name-face))
   "Face used for 'Provides' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-replaces
   '((t :inherit aurel-info-provides))
   "Face used for 'Replaces' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-conflicts
   '((t :inherit aurel-info-provides))
   "Face used for 'Conflicts With' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-depends
   '((t))
   "Face used for 'Depends On' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-depends-make
   '((t))
   "Face used for 'Make Deps' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-depends-opt
   '((t :inherit aurel-info-depends))
   "Face used for 'Optional Deps' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-required
   '((t))
   "Face used for 'Required By' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-optional-for
   '((t :inherit aurel-info-required))
   "Face used for 'Optional For' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-packager
   '((t))
   "Face used for 'Packager' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-validated
   '((t))
   "Face used for 'Validated By' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defface aurel-info-script
   '((t))
   "Face used for 'Install script' parameter."
-  :group 'aurel-info)
+  :group 'aurel-info-faces)
 
 (defcustom aurel-info-download-function 'aurel-download-unpack-dired
   "Function used for downloading AUR package from package info buffer.
