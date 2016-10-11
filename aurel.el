@@ -1326,7 +1326,7 @@ Used by `aurel-list-enable-filter'.")
   :format '((name aurel-list-get-name 30 t)
             (version nil 12 t)
             (installed-version nil 12 t)
-            (maintainer nil 13 t)
+            (maintainer aurel-list-get-maintainer 13 t)
             (votes nil 8 bui-list-sort-numerically-4 :right-align t)
             (popularity aurel-list-get-popularity 12 t)
             (description nil 30 nil))
@@ -1365,6 +1365,16 @@ out of date."
   ;; Display popularity in a decimal-point notation to avoid things like
   ;; "9.6e-05".
   (format "%10.4f" popularity))
+
+(defun aurel-list-get-maintainer (name &optional _)
+  "Return maintainer NAME specification for `tabulated-list-entries'."
+  (bui-get-non-nil name
+    (list name
+          'face 'aurel-info-maintainer
+          'action (lambda (btn)
+                    (aurel-maintainer-search (button-label btn)))
+          'follow-link t
+          'help-echo "Find packages by this maintainer")))
 
 (defun aurel-list-describe (&rest ids)
   "Describe packages with IDS."
