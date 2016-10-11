@@ -617,10 +617,6 @@ PARAM-SYMBOL is a symbol from `aurel-pacman-param-alist'."
 PARAM-NAME is a string from `aurel-pacman-param-alist'."
   (car (rassoc param-name aurel-pacman-param-alist)))
 
-(defun aurel-get-param-val (param info)
-  "Return a value of a parameter PARAM from a package INFO."
-  (cdr (assoc param info)))
-
 
 ;;; Filters for processing package info
 
@@ -735,7 +731,7 @@ Pass the check (return INFO), if `aurel-filter-strings' or
   (when (or (null aurel-filter-params)
             (null aurel-filter-strings)
             (let ((str (mapconcat (lambda (param)
-                                    (aurel-get-param-val param info))
+                                    (bui-entry-value info param))
                                   aurel-filter-params
                                   "\n")))
               (cl-every (lambda (substr)
@@ -843,7 +839,7 @@ INFO is a filtered package info."
         (mapcar (lambda (info)
                   (let ((info (aurel-apply-filters info filters)))
                     (and info
-                         (cons (aurel-get-param-val param info) info))))
+                         (cons (bui-entry-value info param) info))))
                 info-list)))
 
 (defun aurel-get-packages-by-name (&rest names)
@@ -945,7 +941,7 @@ SEARCH-TYPE and SEARCH-VALS are arguments for
                         (mapconcat (lambda (str) (concat "\"" str "\""))
                                    search-vals " "))
                        ((and (= count 1) (eq search-type 'name))
-                        (aurel-get-param-val 'name (cdar packages)))
+                        (bui-entry-value (cdar packages) 'name))
                        (t (car search-vals)))))))
     (and msg (apply 'message msg args))))
 
