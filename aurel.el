@@ -400,10 +400,10 @@ BUFFER should contain html data about the package."
       res)))
 
 (defvar aurel-aur-user-actions
-  '((vote        "do_Vote"     "vote"     "Vote for the current package?")
-    (unvote      "do_UnVote"   "unvote"   "Do you really want to unvote?")
-    (subscribe   "do_Notify"   "notify"   "Subscribe to the new comments?")
-    (unsubscribe "do_UnNotify" "unnotify" "Unsubscribe from notifying about the new comments?"))
+  '((vote        "do_Vote"     "vote"     "Vote for '%s' package?")
+    (unvote      "do_UnVote"   "unvote"   "Remove vote from '%s' package?")
+    (subscribe   "do_Notify"   "notify"   "Enable notifications for '%s' package?")
+    (unsubscribe "do_UnNotify" "unnotify" "Disable notifications for '%s' package?"))
   "Alist of the available actions.
 Each association has the following form:
 
@@ -428,7 +428,7 @@ Return non-nil, if ACTION was performed; return nil otherwise."
           (url-end     (nth 2 assoc))
           (confirm     (nth 3 assoc)))
       (when (or (null confirm)
-                (y-or-n-p confirm))
+                (y-or-n-p (format confirm package-base)))
         (aurel-aur-login-maybe)
         (aurel-url-post
          (aurel-get-package-action-url package-base url-end)
