@@ -1200,7 +1200,35 @@ quotes.  For example, the following search is allowed:
          'name (aurel-get-foreign-packages)))
 
 
-;;; Package filtering predicates
+;;; Filtering packages
+
+(defvar aurel-available-filters
+  '(aurel-filter-maintained
+    aurel-filter-unmaintained
+    aurel-filter-outdated
+    aurel-filter-not-outdated
+    aurel-filter-match-regexp
+    aurel-filter-not-match-regexp
+    aurel-filter-different-versions
+    aurel-filter-same-versions)
+  "List of commands that can be called for filtering a package list.
+Used by `aurel-enable-filter'.")
+
+(defvar aurel-filter-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map bui-filter-map)
+    (define-key map (kbd "f") 'aurel-enable-filter)
+    (define-key map (kbd "v") 'aurel-filter-same-versions)
+    (define-key map (kbd "V") 'aurel-filter-different-versions)
+    (define-key map (kbd "m") 'aurel-filter-unmaintained)
+    (define-key map (kbd "M") 'aurel-filter-maintained)
+    (define-key map (kbd "o") 'aurel-filter-outdated)
+    (define-key map (kbd "O") 'aurel-filter-not-outdated)
+    (define-key map (kbd "r") 'aurel-filter-not-match-regexp)
+    (define-key map (kbd "R") 'aurel-filter-match-regexp)
+    map)
+  "Keymap with filter commands for `aurel-list-mode'.")
+(fset 'aurel-filter-map aurel-filter-map)
 
 (defun aurel-package-maintained? (entry)
   "Return non-nil, if package ENTRY has a maintainer."
@@ -1237,6 +1265,77 @@ available AUR versions."
 (defun aurel-package-not-matching-regexp? (entry regexp)
   "Return non-nil, if package ENTRY's name or description do not match REGEXP."
   (not (aurel-package-matching-regexp? entry regexp)))
+
+(defun aurel-enable-filter (arg)
+  "Prompt for a function for filtering package list and call it.
+Choose candidates from `aurel-available-filters'.
+If ARG is non-nil (with prefix), make selected filter the only
+active one (remove other filters)."
+  (interactive "P")
+  (let ((fun (intern (completing-read
+                      (if current-prefix-arg
+                          "Add filter: "
+                        "Enable filter: ")
+                      aurel-available-filters))))
+    (or (fboundp fun)
+        (error "Wrong function %s" fun))
+    (funcall fun arg)))
+
+(defun aurel-filter-maintained (arg)
+  "Filter current list by hiding maintained packages.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-unmaintained? arg))
+
+(defun aurel-filter-unmaintained (arg)
+  "Filter current list by hiding unmaintained packages.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-maintained? arg))
+
+(defun aurel-filter-outdated (arg)
+  "Filter current list by hiding outdated packages.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-not-outdated? arg))
+
+(defun aurel-filter-not-outdated (arg)
+  "Filter current list by hiding not outdated packages.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-outdated? arg))
+
+(defun aurel-filter-same-versions (arg)
+  "Hide packages with the same installed and available AUR versions.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-different-versions? arg))
+
+(defun aurel-filter-different-versions (arg)
+  "Hide packages with different installed and available AUR versions.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (bui-enable-filter 'aurel-package-same-versions? arg))
+
+(defun aurel-filter-match-regexp (arg)
+  "Hide packages with names or descriptions matching prompted regexp.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (let ((re (read-regexp "Hide packages matching regexp: ")))
+    (bui-enable-filter
+     (lambda (entry)
+       (aurel-package-not-matching-regexp? entry re))
+     arg)))
+
+(defun aurel-filter-not-match-regexp (arg)
+  "Hide packages with names or descriptions not matching prompted regexp.
+See `aurel-enable-filter' for the meaning of ARG."
+  (interactive "P")
+  (let ((re (read-regexp "Hide packages not matching regexp: ")))
+    (bui-enable-filter
+     (lambda (entry)
+       (aurel-package-matching-regexp? entry re))
+     arg)))
 
 
 ;;; Minibuffer readers
@@ -1309,14 +1408,6 @@ destination directory."
   :type 'boolean
   :group 'aurel-list)
 
-(defvar aurel-list-available-filters
-  '(aurel-list-filter-maintained aurel-list-filter-unmaintained
-    aurel-list-filter-outdated aurel-list-filter-not-outdated
-    aurel-list-filter-match-regexp aurel-list-filter-not-match-regexp
-    aurel-list-filter-different-versions aurel-list-filter-same-versions)
-  "List of commands that can be called for filtering a package list.
-Used by `aurel-list-enable-filter'.")
-
 (bui-define-interface aurel list
   :buffer-name "*AUR Packages*"
   :mode-name "AURel-List"
@@ -1332,25 +1423,9 @@ Used by `aurel-list-enable-filter'.")
             (description nil 30 nil))
   :sort-key '(name))
 
-(defvar aurel-list-filter-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map bui-filter-map)
-    (define-key map (kbd "f") 'aurel-list-enable-filter)
-    (define-key map (kbd "v") 'aurel-list-filter-same-versions)
-    (define-key map (kbd "V") 'aurel-list-filter-different-versions)
-    (define-key map (kbd "m") 'aurel-list-filter-unmaintained)
-    (define-key map (kbd "M") 'aurel-list-filter-maintained)
-    (define-key map (kbd "o") 'aurel-list-filter-outdated)
-    (define-key map (kbd "O") 'aurel-list-filter-not-outdated)
-    (define-key map (kbd "r") 'aurel-list-filter-not-match-regexp)
-    (define-key map (kbd "R") 'aurel-list-filter-match-regexp)
-    map)
-  "Keymap with filter commands for `aurel-list-mode'.")
-(fset 'aurel-list-filter-map aurel-list-filter-map)
-
 (let ((map aurel-list-mode-map))
   (define-key map (kbd "d") 'aurel-list-download-package)
-  (define-key map (kbd "f") 'aurel-list-filter-map))
+  (define-key map (kbd "f") 'aurel-filter-map))
 
 (defun aurel-list-get-name (name entry)
   "Return package NAME.
@@ -1417,79 +1492,6 @@ downloaded or `aurel-list-multi-download-function' otherwise."
                                                  (car ids))
                                 'pkg-url)
                dir))))
-
-;;; Filtering package list
-
-(defun aurel-list-enable-filter (arg)
-  "Prompt for a function for filtering package list and call it.
-Choose candidates from `aurel-list-available-filters'.
-If ARG is non-nil (with prefix), make selected filter the only
-active one (remove other filters)."
-  (interactive "P")
-  (let ((fun (intern (completing-read
-                      (if current-prefix-arg
-                          "Add filter: "
-                        "Enable filter: ")
-                      aurel-list-available-filters))))
-    (or (fboundp fun)
-        (error "Wrong function %s" fun))
-    (funcall fun arg)))
-
-(defun aurel-list-filter-maintained (arg)
-  "Filter current list by hiding maintained packages.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-unmaintained? arg))
-
-(defun aurel-list-filter-unmaintained (arg)
-  "Filter current list by hiding unmaintained packages.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-maintained? arg))
-
-(defun aurel-list-filter-outdated (arg)
-  "Filter current list by hiding outdated packages.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-not-outdated? arg))
-
-(defun aurel-list-filter-not-outdated (arg)
-  "Filter current list by hiding not outdated packages.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-outdated? arg))
-
-(defun aurel-list-filter-same-versions (arg)
-  "Hide packages with the same installed and available AUR versions.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-different-versions? arg))
-
-(defun aurel-list-filter-different-versions (arg)
-  "Hide packages with different installed and available AUR versions.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (bui-enable-filter 'aurel-package-same-versions? arg))
-
-(defun aurel-list-filter-match-regexp (arg)
-  "Hide packages with names or descriptions matching prompted regexp.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (let ((re (read-regexp "Hide packages matching regexp: ")))
-    (bui-enable-filter
-     (lambda (entry)
-       (aurel-package-not-matching-regexp? entry re))
-     arg)))
-
-(defun aurel-list-filter-not-match-regexp (arg)
-  "Hide packages with names or descriptions not matching prompted regexp.
-See `aurel-list-enable-filter' for the meaning of ARG."
-  (interactive "P")
-  (let ((re (read-regexp "Hide packages not matching regexp: ")))
-    (bui-enable-filter
-     (lambda (entry)
-       (aurel-package-matching-regexp? entry re))
-     arg)))
 
 
 ;;; Package info
@@ -1746,6 +1748,7 @@ It is inserted after printing info from AUR and before info from pacman."
             (subscribed format aurel-info-insert-subscribed)))
 
 (let ((map aurel-info-mode-map))
+  (define-key map (kbd "f") 'aurel-filter-map)
   (define-key map (kbd "d") 'aurel-info-download-package)
   (define-key map (kbd "v") 'aurel-info-vote-unvote)
   (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe))
