@@ -629,8 +629,9 @@ Used in `aurel-filter-contains-every-string'.")
 Used in `aurel-filter-contains-every-string'.")
 
 (defvar aurel-aur-filters
-  '(aurel-aur-filter-intern aurel-filter-contains-every-string
-    aurel-aur-filter-date aurel-filter-pkg-url)
+  '(aurel-aur-filter-intern
+    aurel-filter-contains-every-string
+    aurel-filter-pkg-url)
   "List of filter functions applied to a package info got from AUR.
 
 Each filter function should accept a single argument - info alist
@@ -648,8 +649,7 @@ For more information, see `aurel-receive-packages-info'.")
 
 (defvar aurel-pacman-filters
   '(aurel-pacman-filter-intern
-    aurel-pacman-filter-none
-    aurel-pacman-filter-date)
+    aurel-pacman-filter-none)
 "List of filter functions applied to a package info got from pacman.
 
 `aurel-pacman-filter-intern' should be the first symbol in the list as
@@ -738,37 +738,6 @@ Pass the check (return INFO), if `aurel-filter-strings' or
                           (string-match-p (regexp-quote substr) str))
                         aurel-filter-strings)))
     info))
-
-(defun aurel-filter-date (info fun &rest params)
-  "Convert date parameters PARAMS of a package INFO to time values.
-INFO is alist of parameter symbols and values.
-FUN is a function taking parameter value as an argument and
-returning time value.
-Return modified info."
-  (dolist (param info info)
-    (let ((param-name (car param))
-          (param-val  (cdr param)))
-      (when (memq param-name params)
-        (setcdr param
-                (funcall fun param-val))))))
-
-(defun aurel-aur-filter-date (info)
-  "Convert date parameters PARAMS of a package INFO to time values.
-Converted parameters: `first-date', `last-date', `outdated'.
-INFO is alist of parameter symbols and values.
-Return modified info."
-  (aurel-filter-date
-   info
-   (lambda (sec)
-     (and sec (seconds-to-time sec)))
-   'first-date 'last-date 'outdated))
-
-(defun aurel-pacman-filter-date (info)
-  "Convert date parameters PARAMS of a package INFO to time values.
-Converted parameters: `install-date', `build-date'.
-INFO is alist of parameter symbols and values.
-Return modified info."
-  (aurel-filter-date info 'date-to-time 'install-date 'build-date))
 
 (defun aurel-filter-pkg-url (info)
   "Update `pkg-url' parameter in a package INFO.
