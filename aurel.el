@@ -761,7 +761,7 @@ received with `aurel-get-installed-packages-info' and is passed
 through `aurel-installed-filters'.  Finally packages info is passed
 through `aurel-final-filters'.
 
-Returning value has a form of `aurel-list'."
+Returning value is alist of (ID . PACKAGE-ALIST) entries."
   ;; To speed-up the process, pacman should be called once with the
   ;; names of found packages (instead of calling it for each name).  So
   ;; we need to know the names at first, that's why we don't use a
@@ -812,14 +812,12 @@ INFO is a filtered package info."
                 info-list)))
 
 (defun aurel-get-packages-by-name (&rest names)
-  "Return packages by package NAMES (list of strings).
-Returning value has a form of `aurel-list'."
+  "Return packages by package NAMES (list of strings)."
   (aurel-receive-packages-info
    (apply #'aurel-get-package-info-url names)))
 
 (defun aurel-get-packages-by-string (&rest strings)
-  "Return packages matching STRINGS.
-Returning value has a form of `aurel-list'."
+  "Return packages matching STRINGS."
   ;; A hack for searching by multiple strings: the actual server search
   ;; is done by the biggest string and the rest strings are searched in
   ;; the results returned by the server
@@ -834,14 +832,12 @@ Returning value has a form of `aurel-list'."
      (aurel-get-package-search-url (car str-list)))))
 
 (defun aurel-get-packages-by-name-string (string)
-  "Return packages with name containing STRING.
-Returning value has a form of `aurel-list'."
+  "Return packages with name containing STRING."
   (aurel-receive-packages-info
    (aurel-get-package-name-search-url string)))
 
 (defun aurel-get-packages-by-maintainer (name)
-  "Return packages by maintainer NAME.
-Returning value has a form of `aurel-list'."
+  "Return packages by maintainer NAME."
   (aurel-receive-packages-info
    (aurel-get-maintainer-search-url name)))
 
@@ -856,8 +852,7 @@ Returning value has a form of `aurel-list'."
   "Search for AUR packages and return results.
 TYPE is a type of search - symbol from `aurel-search-type-alist'.
 It defines a search function which is called with VALS as
-arguments.
-Returning value has a form of `aurel-list'."
+arguments."
   (let ((fun (cdr (assoc type aurel-search-type-alist))))
     (or fun
         (error "Wrong search type '%s'" type))
