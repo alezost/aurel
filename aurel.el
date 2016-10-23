@@ -92,6 +92,11 @@
   "Search for and download AUR (Arch User Repository) packages."
   :group 'applications)
 
+(defgroup aurel-faces nil
+  "Faces for 'aurel' buffers."
+  :group 'aurel
+  :group 'faces)
+
 (defcustom aurel-aur-user-package-info-check nil
   "If non-nil, check additional info before displaying a package info.
 Additional info is an AUR user specific information (whether the user
