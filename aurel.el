@@ -7,7 +7,7 @@
 ;; Version: 0.8
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
-;; Package-Requires: ((emacs "24.3") (bui "1.0") (dash "2.11.0"))
+;; Package-Requires: ((emacs "24.3") (bui "1.0.1") (dash "2.11.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -82,11 +82,6 @@
 (require 'cl-lib)
 (require 'dash)
 (require 'bui)
-(require 'bui-list)
-(require 'bui-info)
-(require 'bui-button)
-(require 'bui-entry)
-(require 'bui-utils)
 
 (defgroup aurel nil
   "Search for and download AUR (Arch User Repository) packages."
