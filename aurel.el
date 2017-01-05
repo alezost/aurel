@@ -1,13 +1,13 @@
 ;;; aurel.el --- Search, get info, vote for and download AUR packages  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014, 2015, 2016 Alex Kost
+;; Copyright (C) 2014-2017 Alex Kost
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
 ;; Version: 0.8
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
-;; Package-Requires: ((emacs "24.3") (bui "1.0.1") (dash "2.11.0"))
+;; Package-Requires: ((emacs "24.3") (bui "1.1.0") (dash "2.11.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -1347,8 +1347,7 @@ Names are completed from package ENTRIES."
 
 (defun aurel-initialize ()
   "Set local variables common for aurel modes."
-  (setq default-directory aurel-download-directory)
-  (bui-mode-initialize-default 'aurel (bui-current-buffer-type)))
+  (setq default-directory aurel-download-directory))
 
 
 ;;; Package list
