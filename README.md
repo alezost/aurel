@@ -124,6 +124,9 @@ Emacs `help` or `Info` modes.  You can move backward/forward by the
 history with <kbd>l</kbd>/<kbd>r</kbd> and refresh information with
 <kbd>g</kbd>.
 
+Press <kbd>h</kbd> to see a `hint` (a summary of the available key
+bindings).
+
 ### AUR account actions
 
 If you have an [AUR][aur] account, you can use `aurel` to vote for

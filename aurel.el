@@ -47,7 +47,8 @@
 ;; list of installed AUR packages with `aurel-installed-packages'.
 
 ;; Information about the packages is represented in a list-like buffer
-;; similar to a buffer containing emacs packages.  To get more info
+;; similar to a buffer containing emacs packages.  Press "h" to see a
+;; hint (a summary of the available key bindings).  To get more info
 ;; about a package (or marked packages), press "RET".  To download a
 ;; package, press "d" (don't forget to set `aurel-download-directory'
 ;; before).  In a list buffer, you can mark several packages for
@@ -1384,11 +1385,20 @@ destination directory."
             (votes nil 8 bui-list-sort-numerically-4 :right-align t)
             (popularity aurel-list-get-popularity 12 t)
             (description nil 30 nil))
+  :hint 'aurel-list-hint
   :sort-key '(name))
 
 (let ((map aurel-list-mode-map))
   (define-key map (kbd "d") 'aurel-list-download-package)
   (define-key map (kbd "f") 'aurel-filter-map))
+
+(defvar aurel-list-default-hint
+  '(("\\[aurel-list-download-package]") " download package(s);\n"))
+
+(defun aurel-list-hint ()
+  (bui-format-hints
+   aurel-list-default-hint
+   (bui-default-hint)))
 
 (defun aurel-list-get-name (name entry)
   "Return package NAME.
@@ -1672,7 +1682,8 @@ It is inserted after printing info from AUR and before info from pacman."
             (first-date format (time aurel-info-date))
             (last-date format (time aurel-info-date))
             aurel-info-insert-pacman-info
-            aurel-info-insert-aur-user-info))
+            aurel-info-insert-aur-user-info)
+  :hint 'aurel-info-hint)
 
 (bui-define-interface aurel-pacman info
   :reduced? t
@@ -1715,6 +1726,16 @@ It is inserted after printing info from AUR and before info from pacman."
   (define-key map (kbd "d") 'aurel-info-download-package)
   (define-key map (kbd "v") 'aurel-info-vote-unvote)
   (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe))
+
+(defvar aurel-info-default-hint
+  '(("\\[aurel-info-download-package]") " download package;\n"
+    ("\\[aurel-info-vote-unvote]") " vote/unvote;\n"
+    ("\\[aurel-info-subscribe-unsubscribe]") " subscribe/unsubscribe;\n"))
+
+(defun aurel-info-hint ()
+  (bui-format-hints
+   aurel-info-default-hint
+   (bui-default-hint)))
 
 (defun aurel-info-insert-votes (votes entry)
   "Insert the number of VOTES at point.
