@@ -688,15 +688,14 @@ If WARNING is non-nil, show a message if unknown parameter is found.
 Return modified info."
   (delq nil
         (mapcar
-         (lambda (param)
-           (let* ((param-name (car param))
-                  (param-symbol (funcall param-fun param-name))
-                  (param-val (cdr param)))
+         (-lambda ((param-name . param-val))
+           (let ((param-symbol (funcall param-fun param-name)))
              (if param-symbol
                  (cons param-symbol param-val)
-               (and warning
-                    (message "Warning: unknown parameter '%s'. It will be omitted."
-                             param-name))
+               (when warning
+                 (message "\
+Warning: unknown parameter '%s'. It will be omitted."
+                          param-name))
                nil)))
          info)))
 
