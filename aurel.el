@@ -7,7 +7,7 @@
 ;; Version: 0.9
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
-;; Package-Requires: ((emacs "24.3") (bui "1.1.0") (dash "2.11.0"))
+;; Package-Requires: ((emacs "24.3") (bui "1.1.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -81,7 +81,6 @@
 (require 'url-handlers)
 (require 'json)
 (require 'cl-lib)
-(require 'dash)
 (require 'bui)
 
 (defgroup aurel nil
@@ -685,7 +684,7 @@ If WARNING is non-nil, show a message if unknown parameter is found.
 Return modified info."
   (delq nil
         (mapcar
-         (-lambda ((param-name . param-val))
+         (pcase-lambda (`(,param-name . ,param-val))
            (if-let* ((param-symbol (funcall param-fun param-name)))
                (cons param-symbol param-val)
              (when warning
@@ -711,7 +710,7 @@ Return modified info."
 
 (defun aurel-pacman-filter-none (info)
   "Replace `aurel-none-string' values in pacman INFO with nil."
-  (mapcar (-lambda ((name . val))
+  (mapcar (pcase-lambda (`(,name . ,val))
             (cons name
                   (unless (string= val aurel-none-string) val)))
           info))
@@ -1303,7 +1302,9 @@ See `aurel-enable-filter' for the meaning of ARG."
   "Prompt for a package name and return it.
 Names are completed from package ENTRIES."
   (completing-read "Package: "
-                   (--map (bui-entry-value it 'name) entries)))
+                   (mapcar (lambda (entry)
+                             (bui-entry-value entry 'name))
+                           entries)))
 
 (defun aurel-read-entry-by-name (entries)
   "Prompt for a package name and return an entry with this name from ENTRIES."
@@ -1427,8 +1428,9 @@ out of date."
   ;; needed.  Moreover, this API does not (!) provide a way to get info
   ;; by package IDs, so we have to search by names.
   (let* ((entries (bui-entries-by-ids (bui-current-entries) ids))
-         (names   (--map (bui-entry-value it 'name)
-                         entries)))
+         (names   (mapcar (lambda (entry)
+                            (bui-entry-value entry 'name))
+                          entries)))
     (bui-get-display-entries 'aurel 'info (cons 'name names))))
 
 (defun aurel-list-download-package ()
