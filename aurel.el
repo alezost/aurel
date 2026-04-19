@@ -1,6 +1,6 @@
 ;;; aurel.el --- Search, get info, vote for and download AUR packages  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014-2017 Alex Kost
+;; Copyright (C) 2014-2026 Alex Kost
 
 ;; Author: Alex Kost <alezost@gmail.com>
 ;; Created: 6 Feb 2014
@@ -134,7 +134,7 @@ Return nil."
     (with-current-buffer (get-buffer-create aurel-debug-buffer)
       (goto-char (point-max))
       (insert (format-time-string aurel-debug-time-format (current-time)))
-      (insert " " (apply 'format msg args) "\n")))
+      (insert " " (apply #'format msg args) "\n")))
   nil)
 
 
@@ -158,7 +158,7 @@ Return nil."
 (defconst aurel-aur-cookie-name "AURSID"
   "Cookie name used for AUR login.")
 
-;; Avoid compilation warning about `url-http-response-status'
+;; Avoid compilation warning about `url-http-response-status'.
 (defvar url-http-response-status)
 
 (defun aurel-check-response-status (buffer &optional noerror)
@@ -510,7 +510,7 @@ Returning value is a list of alists with installed package
 parameters (strings from `aurel-installed-param-alist') and their
 values."
   (let ((buf (get-buffer-create aurel-pacman-buffer-name)))
-    (apply 'aurel-call-pacman buf "--query" "--info" names)
+    (apply #'aurel-call-pacman buf "--query" "--info" names)
     (aurel-pacman-query-buffer-parse buf)))
 
 (defun aurel-pacman-query-buffer-parse (&optional buffer)
@@ -523,7 +523,7 @@ Return list of alists with parameter names and values."
     (let ((beg (point-min))
           end info)
       ;; Packages info are separated with empty lines, search for those
-      ;; till the end of buffer
+      ;; till the end of buffer.
       (cl-loop
        do (progn
             (goto-char beg)
@@ -771,19 +771,19 @@ Returning value is alist of (ID . PACKAGE-ALIST) entries."
   (let (aur-info-list aur-info-alist
         pac-info-list pac-info-alist
         info-list)
-    ;; Receive and process information from AUR server
+    ;; Receive and process information from AUR server.
     (setq aur-info-list  (aurel-get-aur-packages-info url)
           aur-info-alist (aurel-get-filtered-alist
                           aur-info-list aurel-aur-filters 'name))
-    ;; Receive and process information from pacman
+    ;; Receive and process information from pacman.
     (when aurel-installed-packages-check
-      (setq pac-info-list  (apply 'aurel-get-installed-packages-info
+      (setq pac-info-list  (apply #'aurel-get-installed-packages-info
                                   (mapcar #'car aur-info-alist))
             pac-info-alist (aurel-get-filtered-alist
                             pac-info-list
                             aurel-pacman-filters
                             'installed-name)))
-    ;; Join info and do final processing
+    ;; Join info and do final processing.
     (setq info-list
           (mapcar (lambda (aur-info-assoc)
                     (let* ((name (car aur-info-assoc))
@@ -820,9 +820,9 @@ INFO is a filtered package info."
   "Return packages matching STRINGS."
   ;; A hack for searching by multiple strings: the actual server search
   ;; is done by the biggest string and the rest strings are searched in
-  ;; the results returned by the server
+  ;; the results returned by the server.
   (let* ((str-list
-          ;; sort to search by the biggest (first) string
+          ;; Sort to search by the biggest (first) string.
           (sort strings
                 (lambda (a b)
                   (> (length a) (length b)))))
