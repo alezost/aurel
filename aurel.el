@@ -276,19 +276,18 @@ If INHIBIT-COOKIES is non-nil, do not use saved cookies."
 (defun aurel-get-aur-cookie ()
   "Return cookie for AUR login.
 Return nil, if there is no such cookie or it is expired."
-  (url-do-setup) ; initialize cookies
-  (let* ((cookies (url-cookie-retrieve aurel-aur-host "/" t))
-         (cookie (car (cl-member-if
-                       (lambda (cookie)
-                         (equal (url-cookie-name cookie)
-                                aurel-aur-cookie-name))
-                       cookies))))
-    (if (null cookie)
-        (aurel-debug 4 "AUR login cookie not found")
+  (url-do-setup)                ; initialize cookies
+  (if-let* ((cookies (url-cookie-retrieve aurel-aur-host "/" t))
+            (cookie (car (cl-member-if
+                          (lambda (cookie)
+                            (equal (url-cookie-name cookie)
+                                   aurel-aur-cookie-name))
+                          cookies))))
       (if (url-cookie-expired-p cookie)
           (aurel-debug 4 "AUR login cookie is expired")
         (aurel-debug 4 "AUR login cookie is valid")
-        cookie))))
+        cookie)
+    (aurel-debug 4 "AUR login cookie not found")))
 
 (declare-function auth-source-search "auth-source" t)
 
@@ -303,13 +302,12 @@ See `aurel-aur-login' for the meaning of NOERROR and returning value."
         (aurel-debug 2 "Using cookie instead of a real login")
         t)
     (let (user password)
-      (let ((auth (car (auth-source-search :host aurel-aur-host))))
-        (when auth
-          (let ((secret (plist-get auth :secret)))
-            (setq user (plist-get auth :user)
-                  password (if (functionp secret)
-                               (funcall secret)
-                             secret)))))
+      (when-let* ((auth (car (auth-source-search :host aurel-aur-host))))
+        (let ((secret (plist-get auth :secret)))
+          (setq user (plist-get auth :user)
+                password (if (functionp secret)
+                             (funcall secret)
+                           secret))))
       (when (or force (null user))
         (setq user (read-string "AUR user name: " aurel-aur-user-name)))
       (when (or force (null password))
@@ -342,13 +340,12 @@ return nil, if NOERROR is non-nil."
   "Return a new info by adding AUR user info to package INFO.
 See `aurel-aur-user-package-info-check' for the meaning of
 additional info."
-  (let ((add (aurel-get-aur-user-package-info
-              (aurel-get-aur-package-url
-               (bui-entry-value info 'name)))))
-    (if add
-        (cons (cons 'user-info add)
-              info)
-      info)))
+  (if-let* ((add (aurel-get-aur-user-package-info
+                  (aurel-get-aur-package-url
+                   (bui-entry-value info 'name)))))
+      (cons (cons 'user-info add)
+            info)
+    info))
 
 (defun aurel-get-aur-user-package-info (url)
   "Return AUR user specific information about a package from URL.
@@ -689,14 +686,13 @@ Return modified info."
   (delq nil
         (mapcar
          (-lambda ((param-name . param-val))
-           (let ((param-symbol (funcall param-fun param-name)))
-             (if param-symbol
-                 (cons param-symbol param-val)
-               (when warning
-                 (message "\
-Warning: unknown parameter '%s'. It will be omitted."
-                          param-name))
-               nil)))
+           (if-let* ((param-symbol (funcall param-fun param-name)))
+               (cons param-symbol param-val)
+             (when warning
+               (message "\
+Warning: unknown parameter `%s'. It will be omitted."
+                        param-name))
+             nil))
          info)))
 
 (defun aurel-aur-filter-intern (info)
@@ -806,9 +802,8 @@ PARAM-VAL is a value of a parameter PARAM.
 INFO is a filtered package info."
   (delq nil                             ; ignore filtered (empty) info
         (mapcar (lambda (info)
-                  (let ((info (aurel-apply-filters info filters)))
-                    (and info
-                         (cons (bui-entry-value info param) info))))
+                  (when-let* ((info (aurel-apply-filters info filters)))
+                    (cons (bui-entry-value info param) info)))
                 info-list)))
 
 (defun aurel-get-packages-by-name (&rest names)
@@ -1742,8 +1737,8 @@ If `aurel-info-display-voted-mark' is non-nil, insert
 `aurel-info-voted-mark' after."
   (bui-format-insert votes 'aurel-info-votes)
   (and aurel-info-display-voted-mark
-       (--when-let (bui-entry-non-void-value entry 'user-info)
-         (bui-entry-value it 'voted))
+       (when-let* ((info (bui-entry-non-void-value entry 'user-info)))
+         (bui-entry-value info 'voted))
        (bui-format-insert aurel-info-voted-mark
                           'aurel-info-voted-mark)))
 
@@ -1803,12 +1798,12 @@ If `aurel-info-display-voted-mark' is non-nil, insert
 
 (defun aurel-info-insert-aur-user-info (entry)
   "Insert AUR user info from package ENTRY."
-  (--when-let (bui-entry-non-void-value entry 'user-info)
+  (when-let* ((info (bui-entry-non-void-value entry 'user-info)))
     (insert aurel-info-aur-user-string)
     (bui-info-insert-entry
      ;; Add 'base-name' as it is needed for Vote/Subscribe buttons.
      `((base-name . ,(bui-entry-value entry 'base-name))
-       ,@it)
+       ,@info)
      'aurel-user)))
 
 (defun aurel-info-insert-boolean (val &optional t-face nil-face)
