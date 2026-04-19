@@ -223,7 +223,7 @@ See `url-retrieve' for SILENT and INHIBIT-COOKIES."
   (let (asynch-buffer retrieval-done)
     (setq asynch-buffer
           (url-retrieve url
-                        (lambda (&rest ignored)
+                        (lambda (&rest _)
                           (url-debug 'retrieval
                                      "Synchronous fetching done (%S)"
                                      (current-buffer))
@@ -491,7 +491,7 @@ Return numeric exit status."
 
 (defun aurel-pacman-query-names-buffer-parse (&optional buffer)
   "Parse BUFFER with packages names.
-BUFFER should contain an output returned by 'pacman -Q' command.
+BUFFER should contain an output returned by \"pacman -Q\" command.
 If BUFFER is nil, use `aurel-pacman-buffer-name'.
 Return list of names of packages."
   (with-current-buffer
@@ -515,7 +515,7 @@ values."
 
 (defun aurel-pacman-query-buffer-parse (&optional buffer)
   "Parse BUFFER with packages info.
-BUFFER should contain an output returned by 'pacman -Qi' command.
+BUFFER should contain an output returned by \"pacman -Qi\" command.
 If BUFFER is nil, use `aurel-pacman-buffer-name'.
 Return list of alists with parameter names and values."
   (with-current-buffer
@@ -537,7 +537,7 @@ Return list of alists with parameter names and values."
 (defun aurel-pacman-query-region-parse (beg end)
   "Parse text (package info) in current buffer from BEG to END.
 Parsing region should be an output for one package returned by
-'pacman -Qi' command.
+\"pacman -Qi\" command.
 Return alist with parameter names and values."
   (goto-char beg)
   (let (point)
@@ -1069,8 +1069,8 @@ ARGS should have a form taken by `aurel-get-fields-string'."
 
 (defun aurel-get-package-search-url (str &optional field)
   "Return URL for searching a package by string STR.
-FIELD is a field (string) for searching.  May be: 'name',
-'name-desc' (default) or 'maintainer'."
+FIELD is a field (string) for searching.  May be: \"name\",
+\"name-desc\" (default) or \"maintainer\"."
   (or field (setq field "name-desc"))
   (aurel-get-rpc-url
    "search"
@@ -1562,62 +1562,62 @@ downloaded or `aurel-list-multi-download-function' otherwise."
 
 (defface aurel-info-architecture
   '((t))
-  "Face used for 'Architecture' parameter."
+  "Face used for \"Architecture\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-provides
   '((t :inherit font-lock-function-name-face))
-  "Face used for 'Provides' parameter."
+  "Face used for \"Provides\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-replaces
   '((t :inherit aurel-info-provides))
-  "Face used for 'Replaces' parameter."
+  "Face used for \"Replaces\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-conflicts
   '((t :inherit aurel-info-provides))
-  "Face used for 'Conflicts With' parameter."
+  "Face used for \"Conflicts With\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-depends
   '((t))
-  "Face used for 'Depends On' parameter."
+  "Face used for \"Depends On\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-depends-make
   '((t))
-  "Face used for 'Make Deps' parameter."
+  "Face used for \"Make Deps\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-depends-opt
   '((t :inherit aurel-info-depends))
-  "Face used for 'Optional Deps' parameter."
+  "Face used for \"Optional Deps\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-required
   '((t))
-  "Face used for 'Required By' parameter."
+  "Face used for \"Required By\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-optional-for
   '((t :inherit aurel-info-required))
-  "Face used for 'Optional For' parameter."
+  "Face used for \"Optional For\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-packager
   '((t))
-  "Face used for 'Packager' parameter."
+  "Face used for \"Packager\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-validated
   '((t))
-  "Face used for 'Validated By' parameter."
+  "Face used for \"Validated By\" parameter."
   :group 'aurel-info-faces)
 
 (defface aurel-info-script
   '((t))
-  "Face used for 'Install script' parameter."
+  "Face used for \"Install script\" parameter."
   :group 'aurel-info-faces)
 
 (defcustom aurel-info-download-function 'aurel-download-unpack-dired
@@ -1769,7 +1769,7 @@ If `aurel-info-display-voted-mark' is non-nil, insert
      'maintainer name)))
 
 (defun aurel-info-insert-package-url (url &optional _)
-  "Insert package URL and 'Download' button at point."
+  "Insert package URL and \"Download\" button at point."
   (bui-insert-action-button
    "Download"
    (lambda (btn)
