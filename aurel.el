@@ -194,7 +194,8 @@ Returning value is alist of AUR package parameters (strings from
          (results   (cdr (assoc "results" full-info))))
     (cond
      ((string= type "error")
-      (error "%s" results))
+      (error "ERROR from AUR server: %s"
+             (cdr (assoc "error" full-info))))
      ((= count 0)
       nil)
      (t
