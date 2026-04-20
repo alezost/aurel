@@ -518,18 +518,15 @@ Return list of alists with parameter names and values."
   (with-current-buffer
       (or buffer (get-buffer-create aurel-pacman-buffer-name))
     (let ((beg (point-min))
-          end info)
-      ;; Packages info are separated with empty lines, search for those
-      ;; till the end of buffer.
-      (cl-loop
-       do (progn
-            (goto-char beg)
-            (setq end (re-search-forward "^\n" nil t))
-            (and end
-                 (setq info (aurel-pacman-query-region-parse beg end)
-                       beg end)))
-       while end
-       if info collect info))))
+          end info res)
+      (while (and (goto-char beg)
+                  ;; Packages info are separated with empty lines,
+                  ;; search for those till the end of buffer.
+                  (setq end (re-search-forward "^\n" nil t))
+                  (setq info (aurel-pacman-query-region-parse beg end)))
+        (setq beg end
+              res (cons info res)))
+      (nreverse res))))
 
 (defun aurel-pacman-query-region-parse (beg end)
   "Parse text (package info) in current buffer from BEG to END.
@@ -537,12 +534,12 @@ Parsing region should be an output for one package returned by
 \"pacman -Qi\" command.
 Return alist with parameter names and values."
   (goto-char beg)
-  (let (point)
-    (cl-loop
-     do (setq point (re-search-forward
-                     aurel-pacman-info-line-re end t))
-     while point
-     collect (cons (match-string 1) (match-string 2)))))
+  (let (res)
+    (while (re-search-forward aurel-pacman-info-line-re end t)
+      (setq res (cons (cons (match-string 1)
+                            (match-string 2))
+                      res)))
+    (nreverse res)))
 
 
 ;;; Package parameters
@@ -671,10 +668,9 @@ is passed to the second function from that list and so on.
 
 Return filtered info (result of the last filter).  Return nil, if
 one of the FILTERS returns nil (do not call the rest filters)."
-  (cl-loop for fun in filters
-           do (setq info (funcall fun info))
-           while info
-           finally return info))
+  (dolist (fun filters)
+    (setq info (funcall fun info)))
+  info)
 
 (defun aurel-filter-intern (info param-fun &optional warning)
   "Replace names of parameters with symbols in a package INFO.
