@@ -1029,13 +1029,13 @@ Each association of ARGS has a form: (NAME . VALUE).
 If NAME and VALUE are not strings, they are converted to strings
 with `prin1-to-string'.
 Returning string has a form: \"NAME=VALUE&...\"."
-  (cl-flet ((hexify (arg)
-                    (url-hexify-string
-                     (if (stringp arg) arg (prin1-to-string arg)))))
+  (let ((hexify (lambda (arg)
+                  (url-hexify-string
+                   (if (stringp arg) arg (prin1-to-string arg))))))
     (mapconcat (lambda (arg)
                  (concat (car arg)
                          "="
-                         (hexify (cdr arg))))
+                         (funcall hexify (cdr arg))))
                args
                "&")))
 
