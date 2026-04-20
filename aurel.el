@@ -7,7 +7,7 @@
 ;; Version: 0.9
 ;; URL: https://github.com/alezost/aurel
 ;; Keywords: tools
-;; Package-Requires: ((emacs "24.3") (bui "1.1.0"))
+;; Package-Requires: ((emacs "24.3") (seq "2.24") (bui "1.1.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -77,10 +77,10 @@
 
 ;;; Code:
 
+(require 'seq)
 (require 'url)
 (require 'url-handlers)
 (require 'json)
-(require 'cl-lib)
 (require 'bui)
 
 (defgroup aurel nil
@@ -278,11 +278,11 @@ If INHIBIT-COOKIES is non-nil, do not use saved cookies."
 Return nil, if there is no such cookie or it is expired."
   (url-do-setup)                ; initialize cookies
   (if-let* ((cookies (url-cookie-retrieve aurel-aur-host "/" t))
-            (cookie (car (cl-member-if
-                          (lambda (cookie)
-                            (equal (url-cookie-name cookie)
-                                   aurel-aur-cookie-name))
-                          cookies))))
+            (cookie (seq-find
+                     (lambda (cookie)
+                       (equal (url-cookie-name cookie)
+                              aurel-aur-cookie-name))
+                     cookies)))
       (if (url-cookie-expired-p cookie)
           (aurel-debug 4 "AUR login cookie is expired")
         (aurel-debug 4 "AUR login cookie is valid")
@@ -679,17 +679,16 @@ PARAM-FUN is a function for getting parameter internal symbol by
 its name (string).
 If WARNING is non-nil, show a message if unknown parameter is found.
 Return modified info."
-  (delq nil
-        (mapcar
-         (pcase-lambda (`(,param-name . ,param-val))
-           (if-let* ((param-symbol (funcall param-fun param-name)))
-               (cons param-symbol param-val)
-             (when warning
-               (message "\
+  (seq-keep
+   (pcase-lambda (`(,param-name . ,param-val))
+     (if-let* ((param-symbol (funcall param-fun param-name)))
+         (cons param-symbol param-val)
+       (when warning
+         (message "\
 Warning: unknown parameter `%s'. It will be omitted."
-                        param-name))
-             nil))
-         info)))
+                  param-name))
+       nil))
+   info))
 
 (defun aurel-aur-filter-intern (info)
   "Replace names of parameters with symbols in a package INFO.
@@ -726,9 +725,9 @@ Pass the check (return INFO), if `aurel-filter-strings' or
                                     (bui-entry-value info param))
                                   aurel-filter-params
                                   "\n")))
-              (cl-every (lambda (substr)
-                          (string-match-p (regexp-quote substr) str))
-                        aurel-filter-strings)))
+              (seq-every-p (lambda (substr)
+                             (string-match-p (regexp-quote substr) str))
+                           aurel-filter-strings)))
     info))
 
 (defun aurel-filter-pkg-url (info)
