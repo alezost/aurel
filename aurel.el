@@ -958,12 +958,12 @@ Return a path to the downloaded file."
   "Return directory name where files from TAR-INFO will be extracted."
   (let* ((first-header (car tar-info))
          (first-header-type (tar-header-link-type first-header)))
-    (cl-case first-header-type
-      (55                               ; pax_global_header
+    (pcase first-header-type
+      (55                       ; pax_global_header
        ;; There are other special headers (see `tar--check-descriptor', for
        ;; example).  Should they also be ignored?
        (aurel-tar-subdir (cdr tar-info)))
-      (5                                ; directory
+      (5                        ; directory
        (let* ((dir-name (tar-header-name first-header))
               (dir-re (regexp-quote dir-name)))
          (dolist (tar-data (cdr tar-info))
@@ -972,7 +972,7 @@ Return a path to the downloaded file."
                               " into directory '%s'")
                       dir-name)))
          dir-name))
-      (t
+      (_
        (error "The first entry '%s' in tar file is not a directory"
               (tar-header-name first-header))))))
 
