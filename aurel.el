@@ -1042,13 +1042,18 @@ Returning string has a form: \"NAME=VALUE&...\"."
   "Return URL for getting info about AUR packages.
 TYPE is the name of an allowed method.
 ARGS should have a form taken by `aurel-get-fields-string'."
-  (url-expand-file-name
-   (concat "rpc/?"
-           (aurel-get-fields-string
-            (append `(("v" . "5") ; v5 of the RPC API.
-                      ("type" . ,type))
-                    args)))
-   aurel-aur-base-url))
+  (let ((end (pcase type
+               ("search"
+                (concat "search/"
+                        (cdr (assoc "arg" args))
+                        "?by="
+                        (cdr (assoc "by" args))))
+               ("info"
+                (concat "info?" (aurel-get-fields-string args)))
+               (_ (error "Unknown search type: %s" type)))))
+    (url-expand-file-name
+     (concat "rpc/v5/" end)
+     aurel-aur-base-url)))
 
 (defun aurel-get-package-info-url (&rest names)
   "Return URL for getting info about packages with NAMES."
