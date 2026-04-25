@@ -398,10 +398,10 @@ BUFFER should contain html data about the package."
       res)))
 
 (defvar aurel-aur-user-actions
-  '((vote        "do_Vote"     "vote"     "Vote for '%s' package?")
-    (unvote      "do_UnVote"   "unvote"   "Remove vote from '%s' package?")
-    (subscribe   "do_Notify"   "notify"   "Enable notifications for '%s' package?")
-    (unsubscribe "do_UnNotify" "unnotify" "Disable notifications for '%s' package?"))
+  '((vote        "do_Vote"     "vote"     "Vote for `%s' package?")
+    (unvote      "do_UnVote"   "unvote"   "Remove vote from `%s' package?")
+    (subscribe   "do_Notify"   "notify"   "Enable notifications for `%s' package?")
+    (unsubscribe "do_UnNotify" "unnotify" "Disable notifications for `%s' package?"))
   "Alist of the available actions.
 Each association has the following form:
 
@@ -845,7 +845,7 @@ It defines a search function which is called with VALS as
 arguments."
   (let ((fun (cdr (assoc type aurel-search-type-alist))))
     (or fun
-        (error "Wrong search type '%s'" type))
+        (error "Wrong search type `%s'" type))
     (apply fun vals)))
 
 (defun aurel-search-packages-with-user-info (type &rest vals)
@@ -968,11 +968,11 @@ Return a path to the downloaded file."
          (dolist (tar-data (cdr tar-info))
            (or (string-match dir-re (tar-header-name tar-data))
                (error (concat "Not all files are going to be extracted"
-                              " into directory '%s'")
+                              " into directory `%s'")
                       dir-name)))
          dir-name))
       (_
-       (error "The first entry '%s' in tar file is not a directory"
+       (error "The first entry `%s' in tar file is not a directory"
               (tar-header-name first-header))))))
 
 (defun aurel-download-unpack (url dir)
@@ -1007,7 +1007,7 @@ For the meaning of URL and DIR, see `aurel-download-unpack'."
          (file (expand-file-name "PKGBUILD" pkg-dir)))
     (if (file-exists-p file)
         (find-file file)
-      (error "File '%s' doesn't exist" file))))
+      (error "File `%s' doesn't exist" file))))
 
 ;; Avoid compilation warning about `eshell/cd'
 (declare-function eshell/cd "em-dirs" (&rest args))
@@ -1422,10 +1422,10 @@ out of date."
 
 (defun aurel-list-describe (&rest ids)
   "Describe packages with IDS."
-  ;; A list of packages is received using 'search' type.  However, in
-  ;; AUR RPC API, 'info' type returns several additional parameters
-  ;; ("Depends", "Replaces", ...) comparing to the 'search' type.  So
-  ;; re-receiving a package info (using 'info' type this time) is
+  ;; A list of packages is received using `search' type.  However, in
+  ;; AUR RPC API, `info' type returns several additional parameters
+  ;; ("Depends", "Replaces", ...) comparing to the `search' type.  So
+  ;; re-receiving a package info (using `info' type this time) is
   ;; needed.  Moreover, this API does not (!) provide a way to get info
   ;; by package IDs, so we have to search by names.
   (let* ((entries (bui-entries-by-ids (bui-current-entries) ids))
