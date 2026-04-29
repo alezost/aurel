@@ -1150,21 +1150,18 @@ quotes.  For example, the following search is allowed:
   "List of commands that can be called for filtering a package list.
 Used by `aurel-enable-filter'.")
 
-(defvar aurel-filter-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map bui-filter-map)
-    (define-key map (kbd "f") 'aurel-enable-filter)
-    (define-key map (kbd "v") 'aurel-filter-same-versions)
-    (define-key map (kbd "V") 'aurel-filter-different-versions)
-    (define-key map (kbd "m") 'aurel-filter-unmaintained)
-    (define-key map (kbd "M") 'aurel-filter-maintained)
-    (define-key map (kbd "o") 'aurel-filter-outdated)
-    (define-key map (kbd "O") 'aurel-filter-not-outdated)
-    (define-key map (kbd "r") 'aurel-filter-not-match-regexp)
-    (define-key map (kbd "R") 'aurel-filter-match-regexp)
-    map)
-  "Keymap with filter commands for `aurel-list-mode'.")
-(fset 'aurel-filter-map aurel-filter-map)
+(defvar-keymap aurel-filter-map
+  :parent bui-filter-map
+  :doc "Keymap with filter commands for `aurel-list-mode'."
+  "f" #'aurel-enable-filter
+  "v" #'aurel-filter-same-versions
+  "V" #'aurel-filter-different-versions
+  "m" #'aurel-filter-unmaintained
+  "M" #'aurel-filter-maintained
+  "o" #'aurel-filter-outdated
+  "O" #'aurel-filter-not-outdated
+  "r" #'aurel-filter-not-match-regexp
+  "R" #'aurel-filter-match-regexp)
 
 (defun aurel-package-maintained? (entry)
   "Return non-nil, if package ENTRY has a maintainer."
@@ -1363,8 +1360,8 @@ destination directory."
   :sort-key '(name))
 
 (let ((map aurel-list-mode-map))
-  (define-key map (kbd "d") 'aurel-list-download-package)
-  (define-key map (kbd "f") 'aurel-filter-map))
+  (keymap-set map "d" 'aurel-list-download-package)
+  (keymap-set map "f" aurel-filter-map))
 
 (defvar aurel-list-default-hint
   '(("\\[aurel-list-download-package]") " download package(s);\n"))
@@ -1697,10 +1694,10 @@ It is inserted after printing info from AUR and before info from pacman."
             (subscribed format aurel-info-insert-subscribed)))
 
 (let ((map aurel-info-mode-map))
-  (define-key map (kbd "f") 'aurel-filter-map)
-  (define-key map (kbd "d") 'aurel-info-download-package)
-  (define-key map (kbd "v") 'aurel-info-vote-unvote)
-  (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe))
+  (keymap-set map "f" aurel-filter-map)
+  (keymap-set map "d" #'aurel-info-download-package)
+  (keymap-set map "v" #'aurel-info-vote-unvote)
+  (keymap-set map "s" #'aurel-info-subscribe-unsubscribe))
 
 (defvar aurel-info-default-hint
   '(("\\[aurel-info-download-package]") " download package (clone its git repository);\n"
