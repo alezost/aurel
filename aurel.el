@@ -626,8 +626,9 @@ Used in `aurel-filter-contains-every-string'.")
 (defvar aurel-aur-filters
   '(aurel-aur-filter-intern
     aurel-filter-contains-every-string
-    aurel-filter-pkg-url)
-  "List of filter functions applied to a package info got from AUR.
+    aurel-filter-pkg-url
+    aurel-filter-git-url)
+  "List of filter functions applied to a package info obtained from AUR.
 
 Each filter function should accept a single argument - info alist
 with package parameters and should return info alist or
@@ -737,6 +738,15 @@ Return modified info."
   (let ((param (assoc 'pkg-url info)))
     (setcdr param (url-expand-file-name (cdr param) aurel-aur-base-url)))
   info)
+
+(defun aurel-filter-git-url (info)
+  "Add `git-url' parameter to package INFO.
+INFO is alist of parameter symbols and values.
+Return modified info."
+  (let* ((name (alist-get 'name info))
+         (url  (aurel-get-package-git-url name)))
+    (cons (cons 'git-url url)
+          info)))
 
 
 ;;; Searching/showing packages
@@ -913,13 +923,15 @@ SEARCH-TYPE and SEARCH-VALS are arguments for
   :group 'aurel)
 
 (defvar aurel-download-functions
-  '(aurel-download aurel-download-unpack aurel-download-unpack-dired
-    aurel-download-unpack-pkgbuild aurel-download-unpack-eshell)
+  '(aurel-download
+    aurel-download-dired
+    aurel-download-pkgbuild
+    aurel-download-eshell)
   "List of available download functions.")
 
 (defun aurel-read-download-directory ()
   "Return `aurel-download-directory' or prompt for it.
-This function is intended for using in `interactive' forms."
+This function is intended to be used in `interactive' forms."
   (if current-prefix-arg
       (read-directory-name aurel-directory-prompt
                            aurel-download-directory)
@@ -932,92 +944,47 @@ This function is intended for using in `interactive' forms."
           (function :tag "Other function")))
 
 (defun aurel-download (url dir)
-  "Download AUR package from URL to a directory DIR.
-Return a path to the downloaded file."
-  ;; Is there a simpler way to download a file?
-  (let ((file-name-handler-alist
-         (cons (cons url-handler-regexp 'url-file-handler)
-               file-name-handler-alist)))
-    (with-temp-buffer
-      (insert-file-contents-literally url)
-      (let ((file (expand-file-name (url-file-nondirectory url) dir)))
-        (write-file file)
-        file))))
+  "Clone git repository with AUR package from URL to DIR directory.
+Return directory name of the cloned repository."
+  (message "Cloning %s" url)
+  (let* ((default-directory dir)
+         (dest-name (file-name-base url))
+         (dest-dir (expand-file-name dest-name dir)))
+    (if (file-exists-p dest-dir)
+        (message "Package directory already exists: %s" dest-dir)
+      (call-process "git" nil (get-buffer-create aurel-debug-buffer) nil
+                    "clone" url))
+    dest-dir))
 
-;; Code for working with `tar-mode' came from `package-untar-buffer'
-
-;; Avoid compilation warnings about tar functions and variables
-(defvar tar-parse-info)
-(defvar tar-data-buffer)
-(declare-function tar-untar-buffer "tar-mode" ())
-(declare-function tar-header-name "tar-mode" (tar-header) t)
-(declare-function tar-header-link-type "tar-mode" (tar-header) t)
-
-(defun aurel-tar-subdir (tar-info)
-  "Return directory name where files from TAR-INFO will be extracted."
-  (let* ((first-header (car tar-info))
-         (first-header-type (tar-header-link-type first-header)))
-    (pcase first-header-type
-      (55                       ; pax_global_header
-       ;; There are other special headers (see `tar--check-descriptor', for
-       ;; example).  Should they also be ignored?
-       (aurel-tar-subdir (cdr tar-info)))
-      (5                        ; directory
-       (let* ((dir-name (tar-header-name first-header))
-              (dir-re (regexp-quote dir-name)))
-         (dolist (tar-data (cdr tar-info))
-           (or (string-match dir-re (tar-header-name tar-data))
-               (error (concat "Not all files are going to be extracted"
-                              " into directory `%s'")
-                      dir-name)))
-         dir-name))
-      (_
-       (error "The first entry `%s' in tar file is not a directory"
-              (tar-header-name first-header))))))
-
-(defun aurel-download-unpack (url dir)
-  "Download AUR package from URL and unpack it into a directory DIR.
-
-Use `tar-untar-buffer' from Tar mode.  All files should be placed
-in one directory; otherwise, signal an error.
-
-Return a path to the unpacked directory."
-  (let ((file-name-handler-alist
-         (cons (cons url-handler-regexp 'url-file-handler)
-               file-name-handler-alist)))
-    (with-temp-buffer
-      (insert-file-contents url)
-      (setq default-directory dir)
-      (let ((file (expand-file-name (url-file-nondirectory url) dir)))
-        (write-file file))
-      (tar-mode)
-      (let ((tar-dir (aurel-tar-subdir tar-parse-info)))
-        (tar-untar-buffer)
-        (expand-file-name tar-dir dir)))))
-
-(defun aurel-download-unpack-dired (url dir)
+(defun aurel-download-dired (url dir)
   "Download and unpack AUR package, and open the unpacked directory.
 For the meaning of URL and DIR, see `aurel-download-unpack'."
-  (dired (aurel-download-unpack url dir)))
+  (dired (aurel-download url dir)))
 
-(defun aurel-download-unpack-pkgbuild (url dir)
-  "Download and unpack AUR package, and open PKGBUILD file.
+(defun aurel-download-pkgbuild (url dir)
+  "Download AUR package, and open PKGBUILD file.
 For the meaning of URL and DIR, see `aurel-download-unpack'."
-  (let* ((pkg-dir (aurel-download-unpack url dir))
+  (let* ((pkg-dir (aurel-download url dir))
          (file (expand-file-name "PKGBUILD" pkg-dir)))
     (if (file-exists-p file)
         (find-file file)
-      (error "File `%s' doesn't exist" file))))
+      (error "File `%s' does not exist" file))))
 
-;; Avoid compilation warning about `eshell/cd'
 (declare-function eshell/cd "em-dirs" (&rest args))
 
-(defun aurel-download-unpack-eshell (url dir)
-  "Download and unpack AUR package, switch to eshell.
+(defun aurel-download-eshell (url dir)
+  "Download AUR package, switch to eshell.
 For the meaning of URL and DIR, see `aurel-download-unpack'."
-  (let ((pkg-dir (aurel-download-unpack url dir)))
+  (let ((pkg-dir (aurel-download url dir)))
     (eshell)
     (eshell/cd pkg-dir)))
+
+(define-obsolete-function-alias 'aurel-download-unpack-dired
+  'aurel-download-dired "0.10")
+(define-obsolete-function-alias 'aurel-download-unpack-pkgbuild
+  'aurel-download-pkgbuild "0.10")
+(define-obsolete-function-alias 'aurel-download-unpack-eshell
+  'aurel-download-eshell "0.10")
 
 
 ;;; Defining URL
@@ -1099,6 +1066,16 @@ FIELD is a field (string) for searching.  May be: \"name\",
   "Return URL for the PACKAGE-BASE ACTION."
   (concat (aurel-get-package-base-url package-base)
           "/" action))
+
+(defun aurel-get-package-git-url (package)
+  "Return URL of a PACKAGE git repository."
+  (url-expand-file-name (concat package ".git")
+                        aurel-aur-base-url))
+
+(defun aurel-get-package-cgit-url (package)
+  "Return URL of a PACKAGE cgit web interface."
+  (url-expand-file-name (concat "cgit/aur.git/?h=" package)
+                        aurel-aur-base-url))
 
 
 ;;; UI
@@ -1323,6 +1300,7 @@ Names are completed from package ENTRIES."
   :titles
   '((pkg-url             . "Package URL")
     (home-url            . "Home page")
+    (git-url             . "Git URL")
     (aur-url             . "AUR page")
     (base-url            . "Package base")
     (last-date           . "Last modified")
@@ -1349,16 +1327,16 @@ Names are completed from package ENTRIES."
 
 ;;; Package list
 
-(defcustom aurel-list-download-function 'aurel-download-unpack
+(defcustom aurel-list-download-function 'aurel-download-dired
   "Function used for downloading a single AUR package from list buffer.
-It should accept 2 arguments: URL of a downloading file and a
+It should accept 2 arguments: URL of a package git repository and a
 destination directory."
   :type (aurel-download-get-defcustom-type)
   :group 'aurel-list)
 
-(defcustom aurel-list-multi-download-function 'aurel-download-unpack
+(defcustom aurel-list-multi-download-function 'aurel-download
   "Function used for downloading multiple AUR packages from list buffer.
-It should accept 2 arguments: URL of a downloading file and a
+It should accept 2 arguments: URL of a package git repository and a
 destination directory."
   :type (aurel-download-get-defcustom-type)
   :group 'aurel-list)
@@ -1454,13 +1432,13 @@ downloaded or `aurel-list-multi-download-function' otherwise."
                                     count)))
           (mapcar (lambda (entry)
                     (funcall aurel-list-multi-download-function
-                             (bui-entry-value entry 'pkg-url)
+                             (bui-entry-value entry 'git-url)
                              dir))
                   (bui-entries-by-ids (bui-current-entries) ids)))
       (funcall aurel-list-download-function
                (bui-entry-value (bui-entry-by-id (bui-current-entries)
                                                  (car ids))
-                                'pkg-url)
+                                'git-url)
                dir))))
 
 
@@ -1618,9 +1596,9 @@ downloaded or `aurel-list-multi-download-function' otherwise."
   "Face used for \"Install script\" parameter."
   :group 'aurel-info-faces)
 
-(defcustom aurel-info-download-function 'aurel-download-unpack-dired
+(defcustom aurel-info-download-function 'aurel-download-dired
   "Function used for downloading AUR package from package info buffer.
-It should accept 2 arguments: URL of a downloading file and a
+It should accept 2 arguments: URL of a package git repository and a
 destination directory."
   :type (aurel-download-get-defcustom-type)
   :group 'aurel-info)
@@ -1660,7 +1638,7 @@ It is inserted after printing info from AUR and before info from pacman."
             nil
             (description nil (simple aurel-info-description))
             nil
-            (pkg-url simple aurel-info-insert-package-url)
+            aurel-info-insert-code-urls
             (version format (simple aurel-info-version))
             (maintainer format aurel-info-insert-maintainer)
             (home-url format (format bui-url))
@@ -1725,7 +1703,7 @@ It is inserted after printing info from AUR and before info from pacman."
   (define-key map (kbd "s") 'aurel-info-subscribe-unsubscribe))
 
 (defvar aurel-info-default-hint
-  '(("\\[aurel-info-download-package]") " download package;\n"
+  '(("\\[aurel-info-download-package]") " download package (clone its git repository);\n"
     ("\\[aurel-info-vote-unvote]") " vote/unvote;\n"
     ("\\[aurel-info-subscribe-unsubscribe]") " subscribe/unsubscribe;\n"))
 
@@ -1766,16 +1744,27 @@ If `aurel-info-display-voted-mark' is non-nil, insert
      "Find packages by this maintainer"
      'maintainer name)))
 
-(defun aurel-info-insert-package-url (url &optional _)
-  "Insert package URL and \"Download\" button at point."
-  (bui-insert-action-button
-   "Download"
-   (lambda (btn)
-     (aurel-info-download-package (button-get btn 'url)
-                                  (aurel-read-download-directory)))
-   "Download this package"
-   'url url)
-  (bui-info-insert-value-indent url 'bui-url))
+(defun aurel-info-insert-code-urls (entry)
+  "Insert various URLs of package ENTRY code."
+  (bui-info-insert-title-simple "Package")
+  (let* ((name     (bui-entry-value entry 'name))
+         (git-url  (bui-entry-value entry 'git-url))
+         (cgit-url (aurel-get-package-cgit-url name))
+         (tar-url  (bui-entry-value entry 'pkg-url))
+         (dir      (expand-file-name name aurel-download-directory)))
+    (if (file-exists-p dir)
+        (bui-info-insert-value-indent dir 'bui-file)
+      (bui-insert-action-button
+       "Download"
+       (lambda (btn)
+         (aurel-info-download-package (button-get btn 'url)
+                                      (aurel-read-download-directory)))
+       "Download this package (clone the git repository)"
+       'url git-url))
+    (bui-info-insert-value-indent git-url  'bui-url)
+    (bui-info-insert-value-indent cgit-url 'bui-url)
+    (bui-info-insert-value-indent tar-url  'bui-url)
+    (bui-newline)))
 
 (defun aurel-info-insert-aur-url (entry)
   "Insert URL of the AUR package."
@@ -1786,7 +1775,7 @@ If `aurel-info-display-voted-mark' is non-nil, insert
   (bui-newline))
 
 (defun aurel-info-insert-base-url (entry)
-  "Insert URL of the AUR package base."
+  "Insert URL of the AUR package ENTRY base."
   (bui-info-insert-title-format (bui-info-param-title 'aurel 'base-url))
   (bui-info-insert-value-simple
    (aurel-get-package-base-url (bui-entry-value entry 'base-name))
@@ -1857,15 +1846,15 @@ to save the package; without prefix, save to
 `aurel-download-directory' without prompting."
   (interactive
    (list (bui-entry-value (aurel-read-entry-by-name (bui-current-entries))
-                          'pkg-url)
+                          'git-url)
          (aurel-read-download-directory)))
   (funcall aurel-info-download-function url dir))
 
 (defun aurel-info-aur-user-action (action package-base &optional norevert)
   "Perform AUR user ACTION on the current package.
 See `aurel-aur-user-action' for the meaning of ACTION and PACKAGE-BASE.
-If NOREVERT is non-nil, do not revert the buffer (i.e. do not
-refresh package information) after ACTION."
+If NOREVERT is non-nil, do not revert the buffer (i.e., do not refresh
+package information) after ACTION."
   (and (aurel-aur-user-action action package-base)
        (null norevert)
        (revert-buffer nil t)))
